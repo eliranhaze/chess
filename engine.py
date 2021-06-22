@@ -1,74 +1,66 @@
 import chess
 import chess.svg
+import gc
 import random
 import time
 
 from IPython.display import SVG, display
 from stockfish import Stockfish
 
+# TODO:
+    # - Next: implement alphabeta transposition - see wikipedia. Note that I have to combine quiescence and negamax - should be doable
+    # - Then: improve evaluation king safety, pieces attacked (should be easy!), defended pieces, double/passed pawns, etc.
+# NOTE:
+    # - currently pypy3 runs this comfortably with depth 4
 
-# JUNE 12 again
-# - sped some things up - also tried pypy, and seems quite a bit faster. still more to go wrt performance.
+# SOME RESULTS: playing with depth 3 against stockfish:
+    # against 1350: 6-0 [0 draw]
+    # against 1500: 2-3 [1 draw]
+    # against 1650: 0-4 [2 draw]
+    # against 1800: 0-4 [1 draw]
+    # against 2000: 0-4 [0 draw]
+# NOTE: Some draws where unseen repetitions in winning positions!
 
-# JUNE 12
-# - currently speed is improved by 20-30% using transpotision tables - works very well
-# - things to consider next:
-#   - use transposition tables to store alpha/beta values to speed alphabeta search (see wikipedia negamax)
-#   - use faster evaluation function - stuff using bitboards, some bits can also be hashed and stored, e.g. attack value of piece types in given position, pawns, etc. - maybe try piece square tables - take from chessprogramming.org
-#   - speed up other things that take time
-#   - maybe speed things up using pypy - which compiles code or something and is at least 7 times faster apparently; see e.g. https://github.com/thomasahle/sunfish; also see its code for inspiration
-#   - I can have my bot on Lichess - see sunfish for example
-#   - transposition table takes a lot of memory - was at 450mb (2m positions) after 12-13 moves. I need some limit (maybe 5m positions? or so) and then remove oldest/least used positions.
-# - also put this on github!
+# After small improvements such as repetition check and promotions in QS (but before PST):
+    # against 1350: 5-0 [0 draw]
+    # against 1500: 3-2 [0 draw]
+    # against 1650: 1-3 [1 draw]
+    # against 1800: 1-4 [0 draw]
+    # against 2000: 0-5 [0 draw]
 
+# After king and pawn PST, and some performance improvements:
+    # against 1350: 5-0 [0 draw]
+    # against 1500: 3-1 [1 draw]
+    # against 1650: 0-5 [0 draw]
+    # against 1800: 1-4 [0 draw]
+    # against 2000: 1-4 [0 draw]
+# A second run:
+    # against 1350: 5-0 [0 draw]
+    # against 1500: 5-0 [0 draw]
+    # against 1650: 2-3 [0 draw]
+    # against 1800: 0-5 [0 draw]
+    # against 2000: 0-5 [0 draw]
+# NOTE: I should just play 20 games against 1500 to assess strength - will be a bit quicker and more reliable
+    # against 1500: 12-7 [1 draw]
+    # against 1500: 10-8 [2 draw] (with +2 depth during endgame - i think, not sure it worked)
+    # against 1500: 15-4 [1 draw] endgame: 4-1 [0 draw] (definitely with +2 endgame depth this time)
 
-# Some takeaways from Stockfish analysis of serious game with engine - I won by beautiful checkmate
-# final fen: 4Rbkr/pp3r1p/2p3pN/3Q4/8/1PB5/1PP3PP/R6K b - - 5 33
-# - played with depth = 2 most of the game, so it may be mostly as a result of that... but perhaps board evaluation could be improved as well
-# Inaccuracies:
-    # 6.. Bb4 -0.4->0.0; should've played a more aggresive d4 (attacking knight) or Qe7+
-    # 8.. Qb4+ -0.8->+0.9; not sure why, maybe because queen can be easily kicked back
-    # 10.. Qe7 +0.2->+1.3; probably because K-Q alignment issue
-    # 16.. dxe4 +8.1->+9.1; pawn takes but opens the way for bishop/knight to fork/attack king
-# Mistakes:
-    # 11.. Rd8 +0.4->+3.6
-    # 12.. Be4 +3.2->+5.3; bishop is pinned to K-Q and can be attacked with pawn in next 2 moves
-    # 13.. Qe6 +5.2->+6.9
-    # 20.. Ke8 ; didn't see that knight can be captured with queen and I cannot capture back due to pin
-# Blunders:
-    # 22.. Qf7 ; didn't see my discovered check that wins his queen
-
-# mistakes were in a rather sharp position, so may be just a depth issue - but some things may be improved with adding x-rays and attack value to board evaluation - if the engine were aware of my rook xray the whole queen-king issue may have been avoided. (both xray and what is xrayed must be taken into account.)
-# also things like avoiding forks may be acieved with attacked pieces in evaluation
-
-# pgn from move 4:
-#[FEN "r1bqkb1r/pppp1ppp/2n1pn2/8/2B1P3/2N5/PPPP1PPP/R1BQK1NR w KQkq - 0 4"]
-#4. Nf3 d5 5. exd5 exd5 6. Bb3 Bf5 7. d3 Qe7+ 8. Ne2 Qb4+ 9. Bd2 Qc5 10. d4 Qe7 11. O-O Rd8 12. Re1 Be4 13. Nc3 Qe6 14. Ng5 Qf5 15. f3 Nxd4 16. fxe4 dxe4 17. Bxf7+ Ke7 18. Bb3 Nxb3 19. axb3 Qc5+ 20. Kh1 Ke8 21. Ngxe4 Nxe4 22. Nxe4 Qf5 23. Ng3+ Kf7 24. Nxf5 g6 25. Ng3 Bc5 26. Qf3+ Kg8 27. Bc3 Rf8 28. Qd5+ Rf7 29. Re8+ Bf8 30. Ne4 c6 31. Nf6+ Kg7 32. Ng4+ Kg8 33. Nh6#
-
-# IMPORTANT: I have to remember that because of alpha-beta and quiescence only end nodes are evaluated - and they are suppsed to be 'quiet' states. So board evaluation should evaluate more long term aspects of the board - such as material, mobility, structure, etc., and perhaps less checks and so on, a check for instance might be skipped if it is given next move, and only its consequences down the road will be evaluated.
 
 class Engine(object):
 
-    LOG = True
+    LOG = False
+    PRINT = False
+    DISPLAY = False
  
     DEPTH = 3
-    TT_SIZE = 4e6
+    ENDGAME_DEPTH = 5
+    TT_SIZE = 2e6 # 1e6 seems to cap at ~1.2GB; pypy may be taking more memory
     Z_HASHING = False
 
     SQUARE_VALUE = .1 # value for each square attacked by a piece
     DEF_VALUE = .05 # value for each defender of a given square
-    CHECK_VALUE = .15
-    PIECE_VALUE = {
-            chess.PAWN: 1,
-            chess.KNIGHT: 3.2,
-            chess.BISHOP: 3.3,
-            chess.ROOK: 5,
-            chess.QUEEN: 9,
-            chess.KING: 200,
-    }
-    PIECE_TYPES = (chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN) # minus king
 
-    PIECE_VALUES = [-1, 1, 3.2, 3.3, 5, 9, 200]
+    PIECE_VALUES = [-1, 1, 3.2, 3.3, 5, 9, 200] # none, pawn, knight, bishop, rook, queen, king - list for efficiency
 
     # DIRECTIONS
     N = 8
@@ -81,6 +73,8 @@ class Engine(object):
     SE = S + E
     KNIGHT = [N + NE, N + NW, S + SE, S + SW, E + SE, E + NE, W + SW, W + NW]
 
+    BB_FILES_AH = chess.BB_FILE_A | chess.BB_FILE_H
+
     # UTIL TABLES
     ROOK_CASTLING_SQ = [0] * 64 # king new sq -> (old rook sq, new rook sq)
     ROOK_CASTLING_SQ[2] = (0,3) # white queenside
@@ -88,25 +82,57 @@ class Engine(object):
     ROOK_CASTLING_SQ[58] = (56,59) # black queenside
     ROOK_CASTLING_SQ[62] = (63,61) # black kingside
 
+    KNIGHT_ATTACK_TABLE = [2, 3, 4, 4, 4, 4, 3, 2, 3, 4, 6, 6, 6, 6, 4, 3, 4, 6, 8, 8, 8, 8, 6, 4, 4, 6, 8, 8, 8, 8, 6, 4, 4, 6, 8, 8, 8, 8, 6, 4, 4, 6, 8, 8, 8, 8, 6, 4, 3, 4, 6, 6, 6, 6, 4, 3, 2, 3, 4, 4, 4, 4, 3, 2]
+
+    # PIECE SQUARE TABLES
+
+    MG_PAWN_SQ_TABLE = [
+              0,   0,   0,   0,   0,   0,  0,   0,
+             98, 134,  61,  95,  68, 126, 34, -11,
+             -6,   7,  26,  31,  65,  56, 25, -20,
+            -14,  13,   6,  21,  23,  12, 17, -23,
+            -27,  -2,  -5,  12,  17,   6, 10, -25,
+            -26,  -4,  -4, -10,   3,   3, 33, -12,
+            -35,  -1, -20, -23, -15,  24, 38, -22,
+              0,   0,   0,   0,   0,   0,  0,  0,
+        ]
+
+    EG_PAWN_SQ_TABLE = [
+              0,   0,   0,   0,   0,   0,   0,   0,
+            178, 173, 158, 134, 147, 132, 165, 187,
+             94, 100,  85,  67,  56,  53,  82,  84,
+             32,  24,  13,   5,  -2,   4,  17,  17,
+             13,   9,  -3,  -7,  -7,  -8,   3,  -1,
+              4,   7,  -6,   1,   0,  -5,  -1,  -8,
+             13,   8,   8,  10,  13,   0,   2,  -7,
+              0,   0,   0,   0,   0,   0,   0,   0,
+        ]
+
+    MG_KING_SQ_TABLE = [
+            -65,  23,  16, -15, -56, -34,   2,  13,
+             29,  -1, -20,  -7,  -8,  -4, -38, -29,
+             -9,  24,   2, -16, -20,   6,  22, -22,
+            -17, -20, -12, -27, -30, -25, -14, -36,
+            -49,  -1, -27, -39, -46, -44, -33, -51,
+            -14, -14, -22, -46, -44, -30, -15, -27,
+              1,   7,  -8, -64, -43, -16,   9,   8,
+            -15,  36,  12, -54,   8, -28,  24,  14,
+        ]
+
+    EG_KING_SQ_TABLE = [
+            -74, -35, -18, -18, -11,  15,   4, -17,
+            -12,  17,  14,  17,  17,  38,  23,  11,
+             10,  17,  23,  15,  20,  45,  44,  13,
+             -8,  22,  24,  27,  26,  33,  26,   3,
+            -18,  -4,  21,  24,  27,  23,   9, -11,
+            -19,  -3,  11,  21,  23,  16,   7,  -9,
+            -27, -11,   4,  13,  14,   4,  -5, -17,
+            -53, -34, -21, -11, -28, -14, -24, -43
+        ]
+
     def __init__(self):
-        self.board = chess.Board()
-        self._hash = None
-        self.last_evaluated_board = None
-        self.last_evaluation = None
-        self.transpositions = {}
-        self.transmoves = {}
-        self.transmoves_q = {}
-        self.tt_count = 0
-        self.ntt_count = 0
-        self.tm_count = 0
-        self.ntm_count = 0
-        self.times = {
-                'ev': 0,
-                'ord': 0,
-                'q': 0,
-        }
-        self.geth = 0
-        self.geth_none = 0
+        self._init_sq_tables()
+        self._init_game_state()
         if self.Z_HASHING:
             self._get_hash = self._get_hash_z
             self._make_move = self._make_move_z
@@ -117,39 +143,71 @@ class Engine(object):
             self._make_move = self._make_move_default
             self._unmake_move = self._unmake_move_default
 
-    def evaluate_elo(self):
-        results = {}
-        for elo in (800,1000,1200,1400):
-            for i in range(10):
-                result = self.play_stockfish(elo)
-                results.setdefault(elo, []).append(result)
-        print('results:')
-        for elo, r in results.items():
-            win = r.count('1-0')
-            draw = r.count('1/2-1/2')
-            loss = r.count('0-1')
-            print('%s: %d/%d/%d' % (elo, win,draw,loss))
-        return results
+    def __str__(self):
+        return 'engine (depth %d)' % self.DEPTH
 
-    def play_stockfish(self, level):
-        sf = Stockfish('/usr/local/bin/stockfish')
-        sf.set_elo_rating(level)
+    __repr__ = __str__
+
+    def _init_sq_tables(self):
+        sq_tables = [var for var in dir(self) if var.endswith('SQ_TABLE')]
+        for table_name in sq_tables:
+            table = getattr(self, table_name)
+            for sq in range(64): table[sq] /= 100
+            w_table_name = table_name + '_W'
+            w_table = [0] * 64
+            for sq in range(64): w_table[sq] = table[sq ^ 56]
+            b_table = table_name + '_B'
+            b_table = table
+            combined = [b_table, w_table]
+            setattr(self, table_name, combined)
+
+    def _init_game_state(self):
         self.board = chess.Board()
-        color = chess.WHITE # to be random
-        sf_color = not color
+        self.endgame = False
+        self._hash = None
+        self.transpositions = {}
+        self.top_moves = {}
+        self.transmoves_q = {}
+        self.tt_count = 0
+        self.ntt_count = 0
+        self.tm_count = 0
+        self.ntm_count = 0
+        self.move_hits = 0
+        self.top_hits = 0
+        self.times = {
+                'ev': 0,
+                'q': 0,
+        }
+
+    def game_pgn(self):
+        import chess.pgn
+        game = chess.pgn.Game()
+        node = game
+        for m in e.board.move_stack:
+            node = node.add_variation(m)
+        return str(game)
+
+    def play_stockfish(self, level, self_color = True):
+        import chess.engine
+        print('%s playing stockfish rated %d as %s' % (self, level, ['black','white'][self_color]))
+        sf = chess.engine.SimpleEngine.popen_uci('/usr/local/bin/stockfish')
+        sf.configure({'UCI_LimitStrength':True})
+        sf.configure({'UCI_Elo':level})
+        self._init_game_state()
         while not self.board.is_game_over():
-            if self.board.turn == color:
+            if self.board.turn == self_color:
                 move = self._select_move()
                 print('playing %s' % self.board.san(move))
                 self.board.push(move)
+                time.sleep(.5) # let the cpu relax for a moment
             else:
-                sf.set_fen_position(self.board.fen())
-                move = chess.Move.from_uci(sf.get_best_move())
-                print('playing %s' % self.board.san(move))
+                move = sf.play(board = self.board, limit = chess.engine.Limit(time=.1)).move
+                print('sf playing %s' % self.board.san(move))
                 self.board.push(move)
             self._display_board()
         print('Game over: %s' % self.board.result())
-        return self.board.result()
+        sf.quit()
+        return self.board.outcome().winner
 
     def play(self, player_color = chess.WHITE, board = None):
 
@@ -172,7 +230,7 @@ class Engine(object):
                     print('  - %s: %.2fs (%.1f%%)' % (x, dur, 100*dur/tt))
                 print('tt: %d, ntt: %d (%.1f%%)' % (self.tt_count, self.ntt_count, 100*self.tt_count/(self.tt_count+self.ntt_count)))
                 #print('tm: %d, ntm: %d (%.1f%%)' % (self.tm_count, self.ntm_count, 100*self.tm_count/(self.tm_count+self.ntm_count)))
-                print('none: %d, total: %d (%.1f%%)' % (self.geth_none, self.geth, 100*self.geth_none/self.geth))
+                #print('top move hits: %d, total: %d (%.1f%%)' % (self.top_hits, self.move_hits, 100*self.top_hits/self.move_hits))
                 #self.board.push(move)
                 self._make_move(move)
             self._display_board()
@@ -182,8 +240,8 @@ class Engine(object):
         #print('===')
         #print(self.board)
         #print('===')
-        #display(SVG(chess.svg.board(self.board, size = 400)))
-        display(self.board)
+        if self.DISPLAY:
+            display(self.board)
         print(self.board.fen())
 
     def _log(self, msg):
@@ -203,72 +261,52 @@ class Engine(object):
                 print('illegal move: %s' % move)
 
     def _select_move(self):
-        return self._negamaxmeta(depth = self.DEPTH)
+        self._check_endgame()
+        return self._negamaxmeta(depth = self.ENDGAME_DEPTH if self.endgame else self.DEPTH)
+
+    def _check_endgame(self):
+        if not self.endgame:
+            self.endgame = all(self._material_count(color) <= 13 for color in chess.COLORS)
+            if self.endgame:
+                print('--- ENDGAME HAS BEGUN ---')
 
     def _ordered_legal_moves(self):
-        t0 = time.time()
-
-        # add attacks, captures, checks etc...
-        # we can see which move is best by looking at move values dict - once the best value is reached
-        # all following moves get its value as well, which means they have been skipped. The earlier this
-        # move is got the better.
-        def sort_key(move): # I might just want to go by board evaluation here...
-            # smaller key = earlier in order
-            key = 0
-            turn = self.board.turn
-            if self._is_move_check(move): 
-                # can check this down where I push the move...
-                key -= 10
-            if self.board.is_capture(move):
-                capturer = self.board.piece_at(move.from_square)
-                captured = self.board.piece_at(move.to_square)
-                if captured is None: # en passant
-                    captured_value = self.PIECE_VALUE[chess.PAWN]
-                else:
-                    captured_value = self.PIECE_VALUE[captured.piece_type]
-                value_gain = captured_value - self.PIECE_VALUE[capturer.piece_type]
-                if value_gain > 0:
-                    key -= value_gain
-            self.board.push(move)
-            for piece_type in self.PIECE_TYPES:
-                for piece in self.board.pieces(piece_type, turn):
-                    attackers = self.board.attackers(not turn, piece)
-                    defenders = self.board.attackers(turn, piece)
-                    #attack_value = sum(self.PIECE_VALUE[self.board.piece_at(a).piece_type] for a in attackers)
-                    #defense_value = sum(self.PIECE_VALUE[self.board.piece_at(a).piece_type] for a in defenders)
-                    #if attack_value > defense_value: # can be captured
-                    #    key += self.PIECE_VALUE[piece_type]
-                    if len(defenders) == 0: # just hanging
-                        key += self.PIECE_VALUE[piece_type] / 2
-            self.board.pop()
-            return key
-        s = sorted(self.board.legal_moves, key = sort_key)
-        self.times['ord'] += time.time() - t0
-        return s
+        board_hash = self._get_hash()
+        top_move = self.top_moves.get(board_hash)
+        if top_move:
+            yield top_move
+        for move in sorted(self.board.legal_moves, key = self._evaluate_move):
+            if move != top_move: # don't re-search top move
+                yield move
 
     def _gen_moves(self):
         for move in self._ordered_legal_moves():
             yield move
 
-    def _gen_quiesce_moves(self): # I gotta hash castling rights / en passant as well to make this sound
-        board_hash = self._get_hash()
-        if board_hash in self.transmoves_q:
-            for move in self.transmoves_q[board_hash]:
+    def _gen_quiesce_moves(self): 
+        # this is much faster in deep QS cases, but a bit slower in other cases - overall better, also saves memory
+        for move in self._ordered_legal_moves():
+            if self.board.is_capture(move) or move.promotion:
                 yield move
-        else:
-            self.transmoves_q[board_hash] = []
-            for move in self.board.legal_moves:
-                if self.board.is_capture(move):
-                    self.transmoves_q[board_hash].append(move)
-                    yield move
 
-    def _quiesce(self, alpha, beta):
+        #board_hash = self._get_hash()
+        #if board_hash in self.transmoves_q:
+        #    for move in self.transmoves_q[board_hash]:
+        #        yield move
+        #else:
+        #    self.transmoves_q[board_hash] = []
+        #    for move in self.board.legal_moves:
+        #        if self.board.is_capture(move) or move.promotion: # maybe checks as well?
+        #            self.transmoves_q[board_hash].append(move)
+        #            yield move
+
+    def _quiesce(self, alpha, beta): # TODO: consider limiting somehow - see wiki for tips # TODO: also figure out how to time-limit
         stand_pat = self._evaluate_board()
         if stand_pat >= beta:
             return beta
         if alpha < stand_pat:
             alpha = stand_pat
-        for move in self._gen_quiesce_moves():
+        for move in self._gen_quiesce_moves(): # TODO: considering move ordering here as well
             piece_from, piece_to = self._make_move(move)
             score = -self._quiesce(-beta, -alpha)
             self._unmake_move(move, piece_from, piece_to)
@@ -276,6 +314,7 @@ class Engine(object):
                 return beta
             if score > alpha:
                 alpha = score
+        # TODO: top move should also be stored here
         return alpha
 
     def _negamaxmeta(self, depth, force_depth = False):
@@ -286,19 +325,10 @@ class Engine(object):
         beta = float('inf')
         move_values = {}
 
-        #last_move = self.board.move_stack[-1]
-        #if last_move.uci() == 'e2e4':
-        #    next_move = self.board.parse_san('e5')
-        #elif last_move.uci() == 'g1f3':
-        #    next_move = self.board.parse_san('Nf6')
-        #elif last_move.uci() == 'b1c3':
-        #    next_move = self.board.parse_san('Nc6')
-        #elif last_move.uci() == 'f1c4':
-        #    next_move = self.board.parse_san('Bc5')
-
         for move in self._gen_moves():
             self.depth = depth
-            print('evaluating move %s' % self.board.san(move))
+            if self.PRINT:
+                print('evaluating move %s' % self.board.san(move))
             piece_from, piece_to = self._make_move(move)
             value =  -self._negamax(depth - 1, -beta, -alpha)
             self._unmake_move(move, piece_from, piece_to)
@@ -308,20 +338,26 @@ class Engine(object):
                 best_value = value
                 best_move = move
             alpha = max(alpha, value)
-        print('evals (depth = %s)' % depth)
-        for move, val in move_values.items():
-            print('%s: %.2f' % (self.board.san(move), val))
+            # TODO: shouldn't there be an alpha>=beta check here as in below??
+        if self.PRINT:
+            print('evals (depth = %s)' % depth)
+            for move, val in move_values.items():
+                print('%s: %.2f' % (self.board.san(move), val))
+        else:
+            print('best eval: %.2f (depth = %s)' % (move_values[best_move], depth))
         return best_move
 
     def _negamax(self, depth, alpha, beta):
         self._table_maintenance() # do this here instead of at every table insertion to save time
         self.depth = depth
         if depth == 0 or self.board.is_game_over():
-            t0 = time.time()
+            #t0 = time.time()
             q = self._quiesce(alpha, beta)
-            self.times['q'] += time.time() - t0
+            #self.times['q'] += time.time() - t0
             return q
         value = -float('inf')
+        best = None
+        prev_val = value
         for move in self._gen_moves():
             self.depth = depth
             piece_from, piece_to = self._make_move(move)
@@ -329,24 +365,44 @@ class Engine(object):
             self._unmake_move(move, piece_from, piece_to)
             alpha = max(alpha, value)
             if alpha >= beta:
+                best = move
                 break
+            if value != prev_val:
+                prev_val = value
+                best = move
+        self.top_moves[self._get_hash()] = best
         return value
 
     def _table_maintenance(self):
         if len(self.transpositions) > self.TT_SIZE:
+            print('###### CLEARING TT ######')
             self.transpositions.clear()
+            gc.collect()
+            print('###### CLEARED ######')
         if len(self.transmoves_q) > self.TT_SIZE:
+            print('###### CLEARING TMQ ######')
             self.transmoves_q.clear()
+            gc.collect()
+            print('###### CLEARED ######')
+        if len(self.top_moves) > self.TT_SIZE:
+            self.top_moves.clear()
+            gc.collect()
+
+    def _evaluate_move(self, move):
+        piece_from, piece_to = self._make_move(move)
+        e = self._evaluate_board()
+        self._unmake_move(move, piece_from, piece_to)
+        return e
 
     def _evaluate_board(self):
 
-        t0 = time.time()
+        #t0 = time.time()
 
         board_hash = self._get_hash()
         if board_hash in self.transpositions:
-            self.tt_count += 1
-            t1 = time.time() - t0
-            self.times['ev'] += t1
+            #self.tt_count += 1
+            #t1 = time.time() - t0
+            #self.times['ev'] += t1
             return self.transpositions[board_hash]
         else:
             self.ntt_count += 1
@@ -354,22 +410,18 @@ class Engine(object):
         turn_sign = (-1,1)[self.board.turn] # -1 for black, 1 for white
 
         if self.board.is_checkmate(): # current side is mated
-            self.times['ev'] += time.time() - t0
+            #self.times['ev'] += time.time() - t0
             return -999 # needs to be negative for both sides
 
         if self._num_pieces() < 10: # check stalemate / insufficient material only if under 10 pieces for efficiency
             if self.board.is_stalemate() or self.board.is_insufficient_material():
-                self.times['ev'] += time.time() - t0
+                #self.times['ev'] += time.time() - t0
                 return 0
-        # TODO: add repitition draw check
+        
+        if self.board.is_repetition():
+            return 0
 
-        ev = self._piece_eval(chess.WHITE) - self._piece_eval(chess.BLACK) # much more efficient
-
-        # general evaluation
-        #if self.board.is_check(): # current side is checked # NOTE: use self.board.checkers_mask() for faster check
-        #    penalty = self.CHECK_VALUE * len(self.board.checkers())**2 # give more weight to double checks
-        #    penalty *= turn_sign
-        #    ev -= penalty
+        ev = self._piece_eval(chess.WHITE) - self._piece_eval(chess.BLACK)
 
         # for king safety gotta take into account both sides, and + for white - for black
         #ev += self._king_safety_score() # less valuable in endgame, so adjust for that, maybe should be a function of opponent pieces
@@ -385,7 +437,7 @@ class Engine(object):
         # store evaluation
         self.transpositions[board_hash] = ev
 
-        self.times['ev'] += time.time() - t0
+        #self.times['ev'] += time.time() - t0
         return ev
 
     def _piece_eval(self, color):
@@ -402,13 +454,29 @@ class Engine(object):
         e += self.PIECE_VALUES[chess.ROOK] * self._bb_count(rooks)
         e += self.PIECE_VALUES[chess.QUEEN] * self._bb_count(queens)
 
-        patt = bb_wpawn_attacks(pawns) if color else bb_bpawn_attacks(pawns)
-        e += self.SQUARE_VALUE * self._bb_count(patt)
-        #e += self.SQUARE_VALUE * self._bb_count(bb_knight_attacks(knights)) # bug: for black num generated too high, overgenerates, prob need to block board overflow
-        e += self.SQUARE_VALUE * sum(self._bb_count(self.board.attacks_mask(p)) for p in self.board.pieces(chess.KNIGHT, color))
-        e += self.SQUARE_VALUE * sum(self._bb_count(self.board.attacks_mask(p)) for p in self.board.pieces(chess.BISHOP, color))
-        e += self.SQUARE_VALUE * sum(self._bb_count(self.board.attacks_mask(p)) for p in self.board.pieces(chess.ROOK, color))
-        e += self.SQUARE_VALUE * sum(self._bb_count(self.board.attacks_mask(p)) for p in self.board.pieces(chess.QUEEN, color))
+        # NOTE: optimized for pypy: for loops are faster than sum in pypy3 - in python3 it's the other way around
+
+        # pawn attack not calculated because it's just a function of # of pawns and whether they're on the edge
+        for i in chess.scan_forward(knights):
+            e += self.KNIGHT_ATTACK_TABLE[i] * self.SQUARE_VALUE
+        for i in chess.scan_forward(bishops):
+            e += self._bb_count(self.board.attacks_mask(i)) * self.SQUARE_VALUE
+        for i in chess.scan_forward(rooks):
+            e += self._bb_count(self.board.attacks_mask(i)) * self.SQUARE_VALUE
+        for i in chess.scan_forward(queens):
+            e += self._bb_count(self.board.attacks_mask(i)) * self.SQUARE_VALUE
+
+        prev_e = e
+        if self.endgame:
+            for sq in chess.scan_forward(pawns):
+                e += self.EG_PAWN_SQ_TABLE[color][sq]
+            for sq in chess.scan_forward(self.board.kings & o):
+                e += self.EG_KING_SQ_TABLE[color][sq]
+        else:
+            for sq in chess.scan_forward(pawns):
+                e += self.MG_PAWN_SQ_TABLE[color][sq]
+            for sq in chess.scan_forward(self.board.kings & o):
+                e += self.MG_KING_SQ_TABLE[color][sq]
 
         # in endgame, count king attacks as well
 
@@ -417,19 +485,27 @@ class Engine(object):
         # need also to compute defense value as below -- might be very easy&fast using the attacks mask from above
         return e
 
+    def _material_count(self, color):
+        o = self.board.occupied_co[color]
+        pawns = self.board.pawns & o
+        knights = self.board.knights & o
+        bishops = self.board.bishops & o
+        rooks = self.board.rooks & o
+        queens = self.board.queens & o
+
+        e = self.PIECE_VALUES[chess.PAWN] * self._bb_count(pawns)
+        e += self.PIECE_VALUES[chess.KNIGHT] * self._bb_count(knights)
+        e += self.PIECE_VALUES[chess.BISHOP] * self._bb_count(bishops)
+        e += self.PIECE_VALUES[chess.ROOK] * self._bb_count(rooks)
+        e += self.PIECE_VALUES[chess.QUEEN] * self._bb_count(queens)
+
+        return e
+
     ##### UTILS
 
     def _num_pieces(self):
         # an efficient function that calculates num of pieces on the board
         return bitcount(self.board.occupied)
-
-    def _get_pieces(self, color):
-        """ get all pieces (sans king) for given color """
-        pieces = []
-        for pt in self.PIECE_TYPES:
-            for p in self.board.pieces(pt, color):
-                pieces.append(p)
-        return pieces
 
     def _is_hanging(self, color, piece):
         attackers = self.board.attackers(not color, piece)
@@ -506,10 +582,10 @@ class Engine(object):
         return h
 
     def _get_hash_default(self):
-        self.geth += 1
         if self._hash is None:
-            self.geth_none += 1
-            self._hash = hash1(self.board)
+            #self._hash = hash1(self.board)
+            # better than mine - sound, faster, and takes a little less memory
+            self._hash = self.board._transposition_key()
         return self._hash
 
     def _get_hash_z(self):
@@ -546,42 +622,13 @@ class Engine(object):
         self.board.push(move)
         return piece_from, piece_to
 
-    def _make_move(self, move): # promotion, castling and en passant should have special treatment!!!
-
-        raise RuntimeError() # make sure this isn't actually called - see init
-
-        self.board.push(move)
-        self._hash = None # I could save previous hashes in a stack ... and push and pop as needed
-        return None, None
-
-        piece_from = self.board.piece_at(move.from_square)
-        piece_to = self.board.piece_at(move.to_square)
-        self._apply_move(move, piece_from, piece_to)
-        self.board.push(move)
-        #if self._board_hash() != self._hash:
-        #    print('HASH PROBLEMS !!!! make move %s' % move)
-        #    print('piece from %s piece to %s' % (piece_from, piece_to))
-        #    print('expected %s, was %s' % (self._board_hash(), self._hash))
-        #    raise RuntimeError()
-        return piece_from, piece_to
-
     def _unmake_move_default(self, move, piece_from, piece_to):
+        self._hash = None
         return self.board.pop()
 
     def _unmake_move_z(self, move, piece_from, piece_to):
         self.board.pop()
         self._apply_move(move, piece_from, piece_to)
-
-    def _unmake_move(self, move, piece_from, piece_to):
-        self.board.pop()
-        return
-
-        self.board.pop()
-        self._apply_move(move, piece_from, piece_to)
-        #if self._board_hash() != self._hash:
-        #    print('HASH PROBLEMS !!!! unmake')
-        #    raise RuntimeError()
-
 
     def _apply_move(self, move, piece_from, piece_to):
         # apply move to board hash - called *before* move is pushed
@@ -623,15 +670,10 @@ class Engine(object):
         # get memory size in MB of saved data - works only in python3, not in pypy3
         from sys import getsizeof
         size = 0
-        for struct in (self.transpositions, self.transmoves_q):
+        for struct in (self.transpositions, self.transmoves_q, self.top_moves):
             size += getsizeof(struct)
             size += sum(map(getsizeof, struct.values())) + sum(map(getsizeof, struct.keys()))
         return size / 1024 / 1024
-
-
-
-            # TODO: TODO: TODO:
-            # NEXT THING to do I guess would be the alpha-beta transposition stuff
 
 
 # GENERAL UTILS
