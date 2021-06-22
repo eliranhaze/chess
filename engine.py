@@ -519,12 +519,13 @@ class Engine(object):
         return check
 
     def _bb_count(self, x):
-        attacks = 0
-        while x: # inspired by chess.scan_forward used in SquareSets
-            r = x & -x
-            attacks += 1
-            x ^= r
-        return attacks
+        # really fast popcount algorithm, from here: https://stackoverflow.com/a/51388846
+        x = (x & 0x5555555555555555) + ((x >> 1) & 0x5555555555555555)
+        x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333)
+        x = (x & 0x0F0F0F0F0F0F0F0F) + ((x >> 4) & 0x0F0F0F0F0F0F0F0F)
+        x = (x & 0x00FF00FF00FF00FF) + ((x >> 8) & 0x00FF00FF00FF00FF) 
+        x = (x & 0x0000FFFF0000FFFF) + ((x >> 16) & 0x0000FFFF0000FFFF)
+        return (x & 0x00000000FFFFFFFF) + ((x >> 32) & 0x00000000FFFFFFFF)
 
     def _bb_rook_attacks(self, rooks_bits):
         attacks = 0
