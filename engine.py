@@ -212,8 +212,9 @@ class Engine(object):
                 print('sf playing %s' % self.board.san(move))
                 self.board.push(move)
             self._display_board()
-        print('Game over: %s' % self.board.result())
         sf.quit()
+        print('Game over: %s' % self.board.result())
+        print(self.game_pgn())
         return self.board.outcome().winner
 
     def play(self, player_color = chess.WHITE, board = None):
@@ -238,6 +239,7 @@ class Engine(object):
                 print('tt hits: %d, total: %d (%.1f%%)' % (self.tt, self.ev, 100*self.tt/self.ev))
             self._display_board()
         print('Game over: %s' % self.board.result())
+        print(self.game_pgn())
 
     def _display_board(self):
         if self.DISPLAY:
@@ -271,7 +273,8 @@ class Engine(object):
         self._check_endgame()
         if self.ITERATIVE:
             return self._iterative_deepening()
-        return self._negamaxmeta(depth = self.ENDGAME_DEPTH if self.endgame else self.DEPTH)
+        move, _  = self._search_root(depth = self.ENDGAME_DEPTH if self.endgame else self.DEPTH)
+        return move
 
     def _iterative_deepening(self):
         t0 = time.time()
@@ -287,10 +290,9 @@ class Engine(object):
         best_move = None
         max_depth = self.ENDGAME_DEPTH if self.endgame else self.DEPTH
         for depth in range(1, max_depth+20):
-            best_move = self._negamaxmeta(depth = depth)
-            if time.time() - t0 > self.ITER_TIME_CUTOFF:
+            best_move, move_eval = self._search_root(depth = depth)
+            if time.time() - t0 > self.ITER_TIME_CUTOFF or move_eval in (999,-999):
                 break
-            # TODO: stop deepening if best eval is mate
         return best_move
 
     def _check_endgame(self):
@@ -339,7 +341,7 @@ class Engine(object):
                 self.top_moves[self._get_hash()] = move
         return alpha
 
-    def _negamaxmeta(self, depth):
+    def _search_root(self, depth):
         t0 = time.time()
         self.depth = depth
         best_move = None
@@ -367,7 +369,7 @@ class Engine(object):
         else:
             print('best eval: %.2f (depth = %s)' % (move_values[best_move], depth))
         print('took %.1fs' % (time.time()-t0))
-        return best_move
+        return best_move, move_values[best_move]
 
     def _negamax(self, depth, alpha, beta):
         self.depth = depth
