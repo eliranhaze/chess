@@ -50,6 +50,9 @@ from stockfish import Stockfish
         # - according to some sources this puts us at +300 elo above stockfish 1500. 
         # - endgame depth wasn't a factor here since there were only 2 endgames, and they ended 1-1.
         # - engine ran rather slow
+# Iterative deepening, 3.5 cutoff (4-6 deep most moves):
+    # against 1500: 10-0 [1 draw]
+    # - draw was undetected repetition because of tt
 
 
 class Engine(object):
@@ -417,6 +420,10 @@ class Engine(object):
     def _evaluate_board(self):
 
         self.ev += 1
+    
+        # check repetition before tt to avoid undetected repetitions
+        if self.board.is_repetition(count = 3):
+            return 0
 
         board_hash = self._get_hash()
         if board_hash in self.transpositions:
@@ -432,9 +439,6 @@ class Engine(object):
             if self.board.is_stalemate() or self.board.is_insufficient_material():
                 return 0
         
-        if self.board.is_repetition():
-            return 0
-
         ev = self._piece_eval(chess.WHITE) - self._piece_eval(chess.BLACK)
 
         # for king safety gotta take into account both sides, and + for white - for black
