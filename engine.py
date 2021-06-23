@@ -9,6 +9,7 @@ from stockfish import Stockfish
 
 # TODO:
     # - Next: implement alphabeta transposition - see wikipedia. Note that I have to combine quiescence and negamax - should be doable
+        # - See: https://stackoverflow.com/questions/29990116/alpha-beta-prunning-with-transposition-table-iterative-deepening
     # - Then: improve evaluation king safety, pieces attacked (should be easy!), defended pieces, double/passed pawns, etc.
 # NOTE:
     # - currently pypy3 runs this comfortably with depth 4
@@ -19,7 +20,7 @@ from stockfish import Stockfish
     # against 1650: 0-4 [2 draw]
     # against 1800: 0-4 [1 draw]
     # against 2000: 0-4 [0 draw]
-# NOTE: Some draws where unseen repetitions in winning positions!
+# NOTE: Some draws were unseen repetitions in winning positions!
 
 # After small improvements such as repetition check and promotions in QS (but before PST):
     # against 1350: 5-0 [0 draw]
@@ -44,6 +45,11 @@ from stockfish import Stockfish
     # against 1500: 12-7 [1 draw]
     # against 1500: 10-8 [2 draw] (with +2 depth during endgame - i think, not sure it worked)
     # against 1500: 15-4 [1 draw] endgame: 4-1 [0 draw] (definitely with +2 endgame depth this time)
+# Depth 4, endgame depth 6
+    # against 1500: 17-3 [0 draw]
+        # - according to some sources this puts us at +300 elo above stockfish 1500. 
+        # - endgame depth wasn't a factor here since there were only 2 endgames, and they ended 1-1.
+        # - engine ran rather slow
 
 
 class Engine(object):
@@ -51,10 +57,12 @@ class Engine(object):
     LOG = False
     PRINT = False
     DISPLAY = False
+    ITERATIVE = True
+    ITER_TIME_CUTOFF = 4.5
  
     DEPTH = 3
-    ENDGAME_DEPTH = 5
-    TT_SIZE = 2e6 # 1e6 seems to cap at ~1.2GB; pypy may be taking more memory
+    ENDGAME_DEPTH = DEPTH + 2
+    TT_SIZE = 4e6 # 4e6 seems to cap around 2G - a bit more with iterative deepening
     Z_HASHING = False
 
     SQUARE_VALUE = .1 # value for each square attacked by a piece
@@ -149,6 +157,7 @@ class Engine(object):
     __repr__ = __str__
 
     def _init_sq_tables(self):
+        # NOTE: This cannot be called twice!!
         sq_tables = [var for var in dir(self) if var.endswith('SQ_TABLE')]
         for table_name in sq_tables:
             table = getattr(self, table_name)
@@ -168,14 +177,14 @@ class Engine(object):
         self.transpositions = {}
         self.top_moves = {}
         self.transmoves_q = {}
-        self.tt_count = 0
-        self.ntt_count = 0
-        self.tm_count = 0
-        self.ntm_count = 0
         self.move_hits = 0
         self.top_hits = 0
+        self.tt = 0
+        self.ev = 0
         self.times = {
                 'ev': 0,
+                'evp': 0,
+                'evt': 0,
                 'q': 0,
         }
 
@@ -196,9 +205,7 @@ class Engine(object):
         self._init_game_state()
         while not self.board.is_game_over():
             if self.board.turn == self_color:
-                move = self._select_move()
-                print('playing %s' % self.board.san(move))
-                self.board.push(move)
+                self._play_move()
                 time.sleep(.5) # let the cpu relax for a moment
             else:
                 move = sf.play(board = self.board, limit = chess.engine.Limit(time=.1)).move
@@ -210,7 +217,6 @@ class Engine(object):
         return self.board.outcome().winner
 
     def play(self, player_color = chess.WHITE, board = None):
-
         self.board = board if board else chess.Board()
         self._get_hash() # for init
         self.player_color = player_color
@@ -221,32 +227,27 @@ class Engine(object):
                 self._player_move()
             else:
                 t0 = time.time()
-                move = self._select_move()
+                self._play_move()
                 t = time.time() - t0
                 tt += t
-                print('playing %s (took %.2fs)' % (self.board.san(move), t))
+                print('took %.2fs' % t)
                 print('  breakdown:')
                 for x, dur in self.times.items():
                     print('  - %s: %.2fs (%.1f%%)' % (x, dur, 100*dur/tt))
-                print('tt: %d, ntt: %d (%.1f%%)' % (self.tt_count, self.ntt_count, 100*self.tt_count/(self.tt_count+self.ntt_count)))
-                #print('tm: %d, ntm: %d (%.1f%%)' % (self.tm_count, self.ntm_count, 100*self.tm_count/(self.tm_count+self.ntm_count)))
-                #print('top move hits: %d, total: %d (%.1f%%)' % (self.top_hits, self.move_hits, 100*self.top_hits/self.move_hits))
-                #self.board.push(move)
-                self._make_move(move)
+                print('top move hits: %d, total: %d (%.1f%%)' % (self.top_hits, self.move_hits, 100*self.top_hits/self.move_hits))
+                print('tt hits: %d, total: %d (%.1f%%)' % (self.tt, self.ev, 100*self.tt/self.ev))
             self._display_board()
         print('Game over: %s' % self.board.result())
 
     def _display_board(self):
-        #print('===')
-        #print(self.board)
-        #print('===')
         if self.DISPLAY:
             display(self.board)
+            print(self.board)
         print(self.board.fen())
 
     def _log(self, msg):
         if self.LOG:
-            prefix = '---Q' if self.depth == 'Q' else '-' * (3-self.depth)
+            prefix = '---Q' if self.depth == 'Q' else '-' * (self.ENDGAME_DEPTH-self.depth)
             print('%s %s' % (prefix, msg))
 
     def _player_move(self):
@@ -260,9 +261,37 @@ class Engine(object):
             except ValueError:
                 print('illegal move: %s' % move)
 
+    def _play_move(self):
+        move = self._select_move()
+        print('playing %s' % self.board.san(move))
+        self._make_move(move)
+
     def _select_move(self):
+        self._table_maintenance()
         self._check_endgame()
+        if self.ITERATIVE:
+            return self._iterative_deepening()
         return self._negamaxmeta(depth = self.ENDGAME_DEPTH if self.endgame else self.DEPTH)
+
+    def _iterative_deepening(self):
+        t0 = time.time()
+        self._check_endgame()
+        # idk if i can get a way with clearing tt only here, but clearing during search is a problem because it 
+        # can go against the whole iterative deepening idea, clearing tt e.g. at depth 4 just before search to depth 5,
+        # in such cases all the first iterations were just a waste of time and we'll have to do them again.
+        # - not exactly so, because we'll still have the top_moves dict which is rarely cleared.
+        # - the danger is excessive QS that can blow up the tt.
+        # - an alterantive of course is to do smart cleanup.
+        self._table_maintenance()
+        print('deepening iteratively...')
+        best_move = None
+        max_depth = self.ENDGAME_DEPTH if self.endgame else self.DEPTH
+        for depth in range(1, max_depth+20):
+            best_move = self._negamaxmeta(depth = depth)
+            if time.time() - t0 > self.ITER_TIME_CUTOFF:
+                break
+            # TODO: stop deepening if best eval is mate
+        return best_move
 
     def _check_endgame(self):
         if not self.endgame:
@@ -270,54 +299,48 @@ class Engine(object):
             if self.endgame:
                 print('--- ENDGAME HAS BEGUN ---')
 
-    def _ordered_legal_moves(self):
+    def _gen_moves(self):
+        self.move_hits += 1
         board_hash = self._get_hash()
         top_move = self.top_moves.get(board_hash)
         if top_move:
+            self.top_hits += 1
             yield top_move
         for move in sorted(self.board.legal_moves, key = self._evaluate_move):
             if move != top_move: # don't re-search top move
                 yield move
 
-    def _gen_moves(self):
-        for move in self._ordered_legal_moves():
-            yield move
-
     def _gen_quiesce_moves(self): 
         # this is much faster in deep QS cases, but a bit slower in other cases - overall better, also saves memory
-        for move in self._ordered_legal_moves():
+        for move in self._gen_moves():
             if self.board.is_capture(move) or move.promotion:
                 yield move
 
-        #board_hash = self._get_hash()
-        #if board_hash in self.transmoves_q:
-        #    for move in self.transmoves_q[board_hash]:
-        #        yield move
-        #else:
-        #    self.transmoves_q[board_hash] = []
-        #    for move in self.board.legal_moves:
-        #        if self.board.is_capture(move) or move.promotion: # maybe checks as well?
-        #            self.transmoves_q[board_hash].append(move)
-        #            yield move
-
     def _quiesce(self, alpha, beta): # TODO: consider limiting somehow - see wiki for tips # TODO: also figure out how to time-limit
+        # remember that in negamax, both players are trying to maximize their score
+        # alpha represents current player's best so far, and beta the opponent's best so far (from current player POV)
         stand_pat = self._evaluate_board()
         if stand_pat >= beta:
+            # beta cutoff: the evaluated position is 'too good', because the opponent already has a way to avoid this
+            # with a position for which there is this beta score, so there's no point in searching further down this road.
             return beta
         if alpha < stand_pat:
             alpha = stand_pat
-        for move in self._gen_quiesce_moves(): # TODO: considering move ordering here as well
+        for move in self._gen_quiesce_moves():
             piece_from, piece_to = self._make_move(move)
             score = -self._quiesce(-beta, -alpha)
             self._unmake_move(move, piece_from, piece_to)
             if score >= beta:
+                self.top_moves[self._get_hash()] = move
                 return beta
             if score > alpha:
                 alpha = score
-        # TODO: top move should also be stored here
+                # not fully sure that this is sounds, since in QS we're not searching all moves
+                self.top_moves[self._get_hash()] = move
         return alpha
 
-    def _negamaxmeta(self, depth, force_depth = False):
+    def _negamaxmeta(self, depth):
+        t0 = time.time()
         self.depth = depth
         best_move = None
         best_value = -float('inf')
@@ -333,44 +356,39 @@ class Engine(object):
             value =  -self._negamax(depth - 1, -beta, -alpha)
             self._unmake_move(move, piece_from, piece_to)
             move_values[move] = value
-            if value > best_value: #(best_value + .0001):
-                #print('%.30f>%.30f; friendship ended with %s, now %s is best move' % (value, best_value, best_move, move))
+            if value > best_value:
                 best_value = value
                 best_move = move
             alpha = max(alpha, value)
-            # TODO: shouldn't there be an alpha>=beta check here as in below??
         if self.PRINT:
             print('evals (depth = %s)' % depth)
             for move, val in move_values.items():
                 print('%s: %.2f' % (self.board.san(move), val))
         else:
             print('best eval: %.2f (depth = %s)' % (move_values[best_move], depth))
+        print('took %.1fs' % (time.time()-t0))
         return best_move
 
     def _negamax(self, depth, alpha, beta):
-        self._table_maintenance() # do this here instead of at every table insertion to save time
         self.depth = depth
         if depth == 0 or self.board.is_game_over():
-            #t0 = time.time()
             q = self._quiesce(alpha, beta)
-            #self.times['q'] += time.time() - t0
             return q
-        value = -float('inf')
-        best = None
-        prev_val = value
+        best_value = -float('inf')
         for move in self._gen_moves():
             self.depth = depth
             piece_from, piece_to = self._make_move(move)
-            value = max(value, -self._negamax(depth - 1, -beta, -alpha))
+            value = -self._negamax(depth - 1, -beta, -alpha)
             self._unmake_move(move, piece_from, piece_to)
-            alpha = max(alpha, value)
-            if alpha >= beta:
-                best = move
-                break
-            if value != prev_val:
-                prev_val = value
-                best = move
-        self.top_moves[self._get_hash()] = best
+            if value > best_value:
+                best_value = value
+                if value > alpha:
+                    # store best move only when alpha is increased, otherwise we fail low.
+                    self.top_moves[self._get_hash()] = move
+                    alpha = value
+                    if alpha >= beta:
+                        # fail low: position is too good: opponent has an already searched way to avoid it.
+                        break
         return value
 
     def _table_maintenance(self):
@@ -396,26 +414,20 @@ class Engine(object):
 
     def _evaluate_board(self):
 
-        #t0 = time.time()
+        self.ev += 1
 
         board_hash = self._get_hash()
         if board_hash in self.transpositions:
-            #self.tt_count += 1
-            #t1 = time.time() - t0
-            #self.times['ev'] += t1
+            self.tt += 1
             return self.transpositions[board_hash]
-        else:
-            self.ntt_count += 1
 
         turn_sign = (-1,1)[self.board.turn] # -1 for black, 1 for white
 
         if self.board.is_checkmate(): # current side is mated
-            #self.times['ev'] += time.time() - t0
             return -999 # needs to be negative for both sides
 
         if self._num_pieces() < 10: # check stalemate / insufficient material only if under 10 pieces for efficiency
             if self.board.is_stalemate() or self.board.is_insufficient_material():
-                #self.times['ev'] += time.time() - t0
                 return 0
         
         if self.board.is_repetition():
@@ -437,7 +449,6 @@ class Engine(object):
         # store evaluation
         self.transpositions[board_hash] = ev
 
-        #self.times['ev'] += time.time() - t0
         return ev
 
     def _piece_eval(self, color):
@@ -466,7 +477,6 @@ class Engine(object):
         for i in chess.scan_forward(queens):
             e += self._bb_count(self.board.attacks_mask(i)) * self.SQUARE_VALUE
 
-        prev_e = e
         if self.endgame:
             for sq in chess.scan_forward(pawns):
                 e += self.EG_PAWN_SQ_TABLE[color][sq]
