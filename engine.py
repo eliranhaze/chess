@@ -73,6 +73,9 @@ class Engine(object):
 
     PIECE_VALUES = [-1, 1, 3.2, 3.3, 5, 9, 200] # none, pawn, knight, bishop, rook, queen, king - list for efficiency
 
+    # rank just before promotion, for either side - for checking for promotion moves
+    PROMOTION_BORDER = [chess.BB_RANK_2, chess.BB_RANK_7]
+
     # DIRECTIONS
     N = 8
     S = -8
@@ -195,7 +198,7 @@ class Engine(object):
         import chess.pgn
         game = chess.pgn.Game()
         node = game
-        for m in e.board.move_stack:
+        for m in self.board.move_stack:
             node = node.add_variation(m)
         return str(game)
 
@@ -321,7 +324,8 @@ class Engine(object):
             if self.board.is_capture(move) or move.promotion:
                 yield move
 
-    def _quiesce(self, alpha, beta): # TODO: consider limiting somehow - see wiki for tips # TODO: also figure out how to time-limit
+    def _quiesce(self, alpha, beta): # TODO: also figure out how to time-limit
+
         # remember that in negamax, both players are trying to maximize their score
         # alpha represents current player's best so far, and beta the opponent's best so far (from current player POV)
         stand_pat = self._evaluate_board()
@@ -329,9 +333,28 @@ class Engine(object):
             # beta cutoff: the evaluated position is 'too good', because the opponent already has a way to avoid this
             # with a position for which there is this beta score, so there's no point in searching further down this road.
             return beta
+
+        # delta pruning
+        # NOTE: wiki suggests turning delta pruning off during endgame
+        delta = self._max_opponent_piece_value()
+        if self.board.pawns & self.board.occupied_co[self.board.turn] & self.PROMOTION_BORDER[self.board.turn]:
+            delta *= 2
+        if stand_pat + delta < alpha: # promotions might have to be considered as well - we might promote and capture queen
+            # can't raise alpha - saves quite some time
+            return alpha
+
         if alpha < stand_pat:
             alpha = stand_pat
+
         for move in self._gen_quiesce_moves():
+
+            # move delta pruning
+            if not move.promotion:
+                capture_type = self.board.piece_type_at(move.to_square)
+                if capture_type and (self.PIECE_VALUES[capture_type] + stand_pat + 2 < alpha):
+                    # this move can't raise alpha
+                    continue
+
             piece_from, piece_to = self._make_move(move)
             score = -self._quiesce(-beta, -alpha)
             self._unmake_move(move, piece_from, piece_to)
@@ -340,11 +363,13 @@ class Engine(object):
                 return beta
             if score > alpha:
                 alpha = score
-                # not fully sure that this is sounds, since in QS we're not searching all moves
+                # not fully sure that this is sound, since in QS we're not searching all moves
                 self.top_moves[self._get_hash()] = move
+
         return alpha
 
     def _search_root(self, depth):
+
         t0 = time.time()
         self.depth = depth
         best_move = None
@@ -365,6 +390,7 @@ class Engine(object):
                 best_value = value
                 best_move = move
             alpha = max(alpha, value)
+
         if self.PRINT:
             print('evals (depth = %s)' % depth)
             for move, val in move_values.items():
@@ -392,7 +418,7 @@ class Engine(object):
                     self.top_moves[self._get_hash()] = move
                     alpha = value
                     if alpha >= beta:
-                        # fail low: position is too good: opponent has an already searched way to avoid it.
+                        # fail low: position is too good - opponent has an already searched way to avoid it.
                         break
         return value
 
@@ -425,32 +451,33 @@ class Engine(object):
         if self.board.is_repetition(count = 3):
             return 0
 
+        # return evaluation from transposition table if exists
         board_hash = self._get_hash()
         if board_hash in self.transpositions:
             self.tt += 1
             return self.transpositions[board_hash]
 
-        turn_sign = (-1,1)[self.board.turn] # -1 for black, 1 for white
+        # check if current side is mated - negative evaluation for whichever side it is
+        if self.board.is_checkmate(): 
+            return -999 
 
-        if self.board.is_checkmate(): # current side is mated
-            return -999 # needs to be negative for both sides
-
-        if self._num_pieces() < 10: # check stalemate / insufficient material only if under 10 pieces for efficiency
+        # check stalemate and insiffucient material - but only during endgame
+        if self.endgame:
             if self.board.is_stalemate() or self.board.is_insufficient_material():
                 return 0
         
+        # main evaluation
         ev = self._piece_eval(chess.WHITE) - self._piece_eval(chess.BLACK)
 
-        # for king safety gotta take into account both sides, and + for white - for black
-        #ev += self._king_safety_score() # less valuable in endgame, so adjust for that, maybe should be a function of opponent pieces
+        # TODO: some more things to consider:
+            # - double/passed/other pawn stuff
+            # - pins (but might be expensive)
+            # - bishop pair
+            # - attacked/defended pieces
+            # - king safety
 
-        # TODO: check double pawns (not just for pawn moves -- it's an evaluation of the entire board)
-        # TODO: + any enemy pieces pinned according to their value maybe
-        # TODO: bishop pair +.5 bonus
-
-        ev = ev * turn_sign # needed to work with negamax, apparently
-
-        # TODO: check that transposition tables actually work after changes
+        # for negamax, evaluation must always be from the perspective of the current player
+        ev = ev * (-1,1)[self.board.turn]
 
         # store evaluation
         self.transpositions[board_hash] = ev
@@ -516,6 +543,19 @@ class Engine(object):
         e += self.PIECE_VALUES[chess.QUEEN] * self._bb_count(queens)
 
         return e
+
+    def _max_opponent_piece_value(self):
+        opponent = not self.board.turn
+        o = self.board.occupied_co[opponent]
+        if self.board.queens & o:
+            return self.PIECE_VALUES[chess.QUEEN]
+        if self.board.rooks & o:
+            return self.PIECE_VALUES[chess.ROOK]
+        if self.board.bishops & o:
+            return self.PIECE_VALUES[chess.BISHOP]
+        if self.board.knights & o:
+            return self.PIECE_VALUES[chess.KNIGHT]
+        return self.PIECE_VALUES[chess.PAWN]
 
     ##### UTILS
 
@@ -650,7 +690,7 @@ class Engine(object):
     def _apply_move(self, move, piece_from, piece_to):
         # apply move to board hash - called *before* move is pushed
 
-        # TODO: Need to handle castling and en passant as well
+        # TODO: Need to handle en passant as well
 
         # switch turn (code is alternately added/removed)
         self._hash ^= self.z_black_turn
