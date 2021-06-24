@@ -503,11 +503,7 @@ class Engine(object):
         # pawn attack not calculated because it's just a function of # of pawns and whether they're on the edge
         for i in chess.scan_forward(knights):
             e += self.KNIGHT_ATTACK_TABLE[i] * self.SQUARE_VALUE
-        for i in chess.scan_forward(bishops):
-            e += self._bb_count(self.board.attacks_mask(i)) * self.SQUARE_VALUE
-        for i in chess.scan_forward(rooks):
-            e += self._bb_count(self.board.attacks_mask(i)) * self.SQUARE_VALUE
-        for i in chess.scan_forward(queens):
+        for i in chess.scan_forward(bishops | rooks | queens):
             e += self._bb_count(self.board.attacks_mask(i)) * self.SQUARE_VALUE
 
         if self.endgame:
