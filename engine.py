@@ -68,10 +68,10 @@ class Engine(object):
     TT_SIZE = 4e6 # 4e6 seems to cap around 2G - a bit more with iterative deepening
     Z_HASHING = False
 
-    SQUARE_VALUE = .1 # value for each square attacked by a piece
+    SQUARE_VALUE = 10 # value for each square attacked by a piece
     DEF_VALUE = .05 # value for each defender of a given square
 
-    PIECE_VALUES = [-1, 1, 3.2, 3.3, 5, 9, 200] # none, pawn, knight, bishop, rook, queen, king - list for efficiency
+    PIECE_VALUES = [-1, 100, 320, 330, 500, 900, 20000] # none, pawn, knight, bishop, rook, queen, king - list for efficiency
 
     # rank just before promotion, for either side - for checking for promotion moves
     PROMOTION_BORDER = [chess.BB_RANK_2, chess.BB_RANK_7]
@@ -97,6 +97,7 @@ class Engine(object):
     ROOK_CASTLING_SQ[62] = (63,61) # black kingside
 
     KNIGHT_ATTACK_TABLE = [2, 3, 4, 4, 4, 4, 3, 2, 3, 4, 6, 6, 6, 6, 4, 3, 4, 6, 8, 8, 8, 8, 6, 4, 4, 6, 8, 8, 8, 8, 6, 4, 4, 6, 8, 8, 8, 8, 6, 4, 4, 6, 8, 8, 8, 8, 6, 4, 3, 4, 6, 6, 6, 6, 4, 3, 2, 3, 4, 4, 4, 4, 3, 2]
+
 
     # PIECE SQUARE TABLES
 
@@ -167,7 +168,6 @@ class Engine(object):
         sq_tables = [var for var in dir(self) if var.endswith('SQ_TABLE')]
         for table_name in sq_tables:
             table = getattr(self, table_name)
-            for sq in range(64): table[sq] /= 100
             w_table_name = table_name + '_W'
             w_table = [0] * 64
             for sq in range(64): w_table[sq] = table[sq ^ 56]
