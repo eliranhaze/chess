@@ -581,9 +581,7 @@ class Engine(object):
 
         self.ev += 1
     
-        # check repetition before tt to avoid undetected repetitions
-        if self.board.is_repetition(count = 3):
-            return 0
+        # note: repetition not checked here but in negamax
 
         # return evaluation from transposition table if exists
         board_hash = self._get_hash()
