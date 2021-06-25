@@ -329,6 +329,10 @@ class Engine(object):
             self.endgame = all(self._material_count(color) <= 1300 for color in chess.COLORS)
             if self.endgame:
                 print('--- ENDGAME HAS BEGUN ---')
+                # TODO: should use tapered eval for a gradual transition into endgame ... right now we may have
+                # 14 vs 5 material but does not count as endgame, and king stays put etc...
+                # NOTE: also may use a less strict endgame definition, stockfish e.g. calls endgame much earlier
+                # in this game: https://lichess.org/6bwh9VjF - in move 32, whereas I only called it in move 58
 
     def _gen_moves(self):
         self.move_hits += 1
@@ -594,6 +598,10 @@ class Engine(object):
             e += self.MG_KING_SQ_TABLE[color][king_sq]
 
         
+        # TODO: KING SAFETY! Look at this loss to sf 1800: https://lichess.org/mlm0IUdf
+            # - first blunder and subsequent mistakes probably from lack of awareness to king safety
+            # - also walked right into mate in 5 - just a depth issue?
+
         # in endgame, count king attacks as well
 
         # perhaps use piece square table in addition
