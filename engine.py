@@ -194,7 +194,7 @@ class Engine(object):
         self.endgame = False
         self.book = True
         self._hash = None
-        self.transpositions = {}
+        self.evals = {}
         self.top_moves = {}
         self.tp = {}
         self.p_hash = {}
@@ -555,9 +555,9 @@ class Engine(object):
         return alpha
 
     def _table_maintenance(self):
-        if len(self.transpositions) > self.TT_SIZE:
-            print('###### CLEARING TT ######')
-            self.transpositions.clear()
+        if len(self.evals) > self.TT_SIZE:
+            print('###### CLEARING EV ######')
+            self.evals.clear()
             gc.collect()
             print('###### CLEARED ######')
         if len(self.tp) > self.TT_SIZE:
@@ -585,9 +585,9 @@ class Engine(object):
 
         # return evaluation from transposition table if exists
         board_hash = self._get_hash()
-        if board_hash in self.transpositions:
+        if board_hash in self.evals:
             self.tt += 1
-            return self.transpositions[board_hash]
+            return self.evals[board_hash]
 
         # check if current side is mated - negative evaluation for whichever side it is
         if self.board.is_checkmate(): 
@@ -612,7 +612,7 @@ class Engine(object):
         ev = ev * (-1,1)[self.board.turn]
 
         # store evaluation
-        self.transpositions[board_hash] = ev
+        self.evals[board_hash] = ev
 
         return ev
 
@@ -886,7 +886,7 @@ class Engine(object):
         # get memory size in MB of saved data - works only in python3, not in pypy3
         from sys import getsizeof
         size = 0
-        for struct in (self.transpositions, self.top_moves):
+        for struct in (self.evals, self.tp, self.top_moves):
             size += getsizeof(struct)
             size += sum(map(getsizeof, struct.values())) + sum(map(getsizeof, struct.keys()))
         return size / 1024 / 1024
