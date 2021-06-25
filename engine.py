@@ -191,6 +191,7 @@ class Engine(object):
         self.top_moves = {}
         self.p_hash = {}
         self.n_hash = {}
+        self.r_hash = {}
         self.move_hits = 0
         self.top_hits = 0
         self.tt = 0
@@ -569,10 +570,16 @@ class Engine(object):
                 n_val += self.KNIGHT_ATTACK_TABLE[i] * self.SQUARE_VALUE
             self.n_hash[knights] = n_val
 
-        e = p_val + n_val
+        # rook hashing - this helps with speed. maybe hash attack as well according to file/rank occupancy
+        if rooks in self.r_hash:
+            r_val = self.r_hash[rooks]
+        else:
+            r_val = self.PIECE_VALUES[chess.ROOK] * self._bb_count(rooks)
+            self.r_hash[rooks] = r_val
+
+        e = p_val + n_val + r_val
 
         e += self.PIECE_VALUES[chess.BISHOP] * self._bb_count(bishops)
-        e += self.PIECE_VALUES[chess.ROOK] * self._bb_count(rooks)
         e += self.PIECE_VALUES[chess.QUEEN] * self._bb_count(queens)
 
         # NOTE: optimized for pypy: for loops are faster than sum in pypy3 - in python3 it's the other way around
