@@ -309,18 +309,26 @@ class Engine(object):
         return move
 
     def _select_book_move(self):
-        # book downloaded from: https://sites.google.com/site/computerschess/download?authuser=0
+        book_files = [
+            # book downloaded from: https://sites.google.com/site/computerschess/download
+            '/Users/eliran/Downloads/Perfect_2021/BIN/Perfect2021.bin',
+            # books from http://rebel13.nl/prodeo/prodeo-3.0.html
+            '/Users/eliran/Downloads/ProDeo30/books/ProDeo.bin',
+            '/Users/eliran/Downloads/ProDeo30/books/sf12.bin',
+            '/Users/eliran/Downloads/ProDeo30/books/usb.bin',
+        ]
         if not self.book:
-            return None
-        try:
-            with chess.polyglot.open_reader('/Users/eliran/Downloads/Perfect_2021/BIN/Perfect2021.bin') as reader:
-                move = reader.weighted_choice(self.board).move
-        except IndexError:
-            print('out of book!')
-            self.book = False
-            return None
-        print('selected book move: %s' % self.board.san(move))
-        return move
+            return
+        for book_file in book_files:
+            try:
+                with chess.polyglot.open_reader(book_file) as reader:
+                    move = reader.weighted_choice(self.board).move
+                    print('selected book move: %s' % self.board.san(move))
+                    return move
+            except IndexError:
+                continue
+        print('out of book!')
+        self.book = False
 
     def _iterative_deepening(self):
         t0 = time.time()
