@@ -72,6 +72,7 @@ class Engine(object):
     DEF_VALUE = .05 # value for each defender of a given square
 
     PIECE_VALUES = [-1, 100, 320, 330, 500, 900, 20000] # none, pawn, knight, bishop, rook, queen, king - list for efficiency
+    MATE_SCORE = 99900
 
     # rank just before promotion, for either side - for checking for promotion moves
     PROMOTION_BORDER = [chess.BB_RANK_2, chess.BB_RANK_7]
@@ -297,7 +298,7 @@ class Engine(object):
         max_depth = self.ENDGAME_DEPTH if self.endgame else self.DEPTH
         for depth in range(1, max_depth+20):
             best_move, move_eval = self._search_root(depth = depth)
-            if time.time() - t0 > self.ITER_TIME_CUTOFF or move_eval in (999,-999):
+            if time.time() - t0 > self.ITER_TIME_CUTOFF or abs(move_eval) == self.MATE_SCORE:
                 break
         return best_move
 
@@ -459,7 +460,7 @@ class Engine(object):
 
         # check if current side is mated - negative evaluation for whichever side it is
         if self.board.is_checkmate(): 
-            return -999 
+            return -self.MATE_SCORE
 
         # check stalemate and insiffucient material - but only during endgame
         if self.endgame:
