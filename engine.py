@@ -62,6 +62,7 @@ class Engine(object):
     DISPLAY = False
     ITERATIVE = True
     ITER_TIME_CUTOFF = 4.5
+    MAX_ITER_DEPTH = 99
  
     DEPTH = 3
     ENDGAME_DEPTH = DEPTH + 2
@@ -182,12 +183,14 @@ class Engine(object):
         self.endgame = False
         self._hash = None
         self.transpositions = {}
+        self.tc = {}
         self.top_moves = {}
         self.transmoves_q = {}
         self.move_hits = 0
         self.top_hits = 0
         self.tt = 0
         self.ev = 0
+        self.nodes = 0
         self.times = {
                 'ev': 0,
                 'evp': 0,
@@ -244,6 +247,7 @@ class Engine(object):
                     print('  - %s: %.2fs (%.1f%%)' % (x, dur, 100*dur/tt))
                 print('top move hits: %d, total: %d (%.1f%%)' % (self.top_hits, self.move_hits, 100*self.top_hits/self.move_hits))
                 print('tt hits: %d, total: %d (%.1f%%)' % (self.tt, self.ev, 100*self.tt/self.ev))
+                print('total nodes evaluated: %d' % self.nodes)
             self._display_board()
         print('Game over: %s' % self.board.result())
         print(self.game_pgn())
@@ -298,7 +302,7 @@ class Engine(object):
         max_depth = self.ENDGAME_DEPTH if self.endgame else self.DEPTH
         for depth in range(1, max_depth+20):
             best_move, move_eval = self._search_root(depth = depth)
-            if time.time() - t0 > self.ITER_TIME_CUTOFF or abs(move_eval) == self.MATE_SCORE:
+            if time.time() - t0 > self.ITER_TIME_CUTOFF or abs(move_eval) == self.MATE_SCORE or depth == self.MAX_ITER_DEPTH:
                 break
         return best_move
 
@@ -330,6 +334,7 @@ class Engine(object):
         # remember that in negamax, both players are trying to maximize their score
         # alpha represents current player's best so far, and beta the opponent's best so far (from current player POV)
         stand_pat = self._evaluate_board()
+        self.nodes += 1
         if stand_pat >= beta:
             # beta cutoff: the evaluated position is 'too good', because the opponent already has a way to avoid this
             # with a position for which there is this beta score, so there's no point in searching further down this road.
@@ -338,6 +343,7 @@ class Engine(object):
         # delta pruning
         # NOTE: wiki suggests turning delta pruning off during endgame
         delta = self._max_opponent_piece_value()
+        # check if any move might be promoting
         if self.board.pawns & self.board.occupied_co[self.board.turn] & self.PROMOTION_BORDER[self.board.turn]:
             delta *= 2
         if stand_pat + delta < alpha: # promotions might have to be considered as well - we might promote and capture queen
@@ -395,19 +401,50 @@ class Engine(object):
         if self.PRINT:
             print('evals (depth = %s)' % depth)
             for move, val in move_values.items():
-                print('%s: %.2f' % (self.board.san(move), val))
+                print('%s: %.2f' % (self.board.san(move), val/100))
         else:
-            print('best eval: %.2f (depth = %s)' % (move_values[best_move], depth))
+            print('best eval: %.2f (depth = %s)' % (move_values[best_move]/100, depth))
         print('took %.1fs' % (time.time()-t0))
+
         return best_move, move_values[best_move]
 
-    def _negamax(self, depth, alpha, beta):
-        self.depth = depth
-        if depth == 0 or self.board.is_game_over():
-            q = self._quiesce(alpha, beta)
-            return q
-        best_value = -float('inf')
+    def _gen_captures_checks(self): 
         for move in self._gen_moves():
+            if move == self.top_moves.get(self._get_hash()) or move.promotion or self.board.is_capture(move) or self._is_move_check(move):
+                yield move
+
+    def _gen_checks(self): 
+        self.move_hits += 1
+        top_move = self.top_moves.get(self._get_hash())
+        if top_move:
+            self.top_hits += 1
+            yield top_move
+        # only checks and promotions - no move ordering as there should be only a few moves
+        for move in self.board.legal_moves:
+            if move != top_move or move.promotion or self._is_move_check(move):
+                yield move
+
+    def _negamax(self, depth, alpha, beta):
+
+        self.depth = depth
+
+        if depth == 0 or self.board.is_game_over():
+            return self._quiesce(alpha, beta)
+
+        value = -float('inf')
+        best_value = -float('inf')
+
+        # futility pruning
+        gen_moves = self._gen_moves
+        if depth < 4:
+            max_pos_gain = 320 * depth
+            e = self._evaluate_board()
+            if e + max_pos_gain < alpha:
+                gen_moves = self._gen_captures_checks
+                if e + self._max_opponent_piece_value() + max_pos_gain < alpha:
+                    gen_moves = self._gen_checks
+
+        for move in gen_moves():
             self.depth = depth
             piece_from, piece_to = self._make_move(move)
             value = -self._negamax(depth - 1, -beta, -alpha)
@@ -421,7 +458,7 @@ class Engine(object):
                     if alpha >= beta:
                         # fail low: position is too good - opponent has an already searched way to avoid it.
                         break
-        return value
+        return alpha
 
     def _table_maintenance(self):
         if len(self.transpositions) > self.TT_SIZE:
@@ -541,6 +578,9 @@ class Engine(object):
 
         return e
 
+    def _positional_score(self, color):
+        return self._piece_eval(color) - self._material_count(color)
+
     def _max_opponent_piece_value(self):
         opponent = not self.board.turn
         o = self.board.occupied_co[opponent]
@@ -553,8 +593,6 @@ class Engine(object):
         if self.board.knights & o:
             return self.PIECE_VALUES[chess.KNIGHT]
         return self.PIECE_VALUES[chess.PAWN]
-
-    ##### UTILS
 
     def _num_pieces(self):
         # an efficient function that calculates num of pieces on the board
