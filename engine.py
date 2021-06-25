@@ -574,19 +574,21 @@ class Engine(object):
         return alpha
 
     def _table_maintenance(self):
-        if len(self.evals) > self.TT_SIZE:
-            print('###### CLEARING EV ######')
-            self.evals.clear()
-            gc.collect()
-            print('###### CLEARED ######')
-        if len(self.tp) > self.TT_SIZE:
-            print('###### CLEARING TP ######')
-            self.tp.clear()
-            gc.collect()
-            print('###### CLEARED ######')
-        if len(self.top_moves) > self.TT_SIZE:
-            self.top_moves.clear()
-            gc.collect()
+        limits = {
+            'evals': self.TT_SIZE,
+            'tp': self.TT_SIZE,
+            'top_moves': self.TT_SIZE /2,
+            'p_hash': self.TT_SIZE/10,
+            'n_hash': self.TT_SIZE/10,
+            'r_hash': self.TT_SIZE/10,
+        }
+        for var, limit in limits.items():
+            table = getattr(self, var)
+            if len(table) > limit:
+                print('###### CLEARING %s ######' % var.upper())
+                table.clear()
+                gc.collect()
+                print('###### CLEARED ######')
 
     def _evaluate_move(self, move):
         piece_from, piece_to = self._make_move(move)
