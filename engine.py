@@ -185,7 +185,8 @@ class Engine(object):
         self.transpositions = {}
         self.tc = {}
         self.top_moves = {}
-        self.transmoves_q = {}
+        self.p_hash = {}
+        self.n_hash = {}
         self.move_hits = 0
         self.top_hits = 0
         self.tt = 0
@@ -466,11 +467,6 @@ class Engine(object):
             self.transpositions.clear()
             gc.collect()
             print('###### CLEARED ######')
-        if len(self.transmoves_q) > self.TT_SIZE:
-            print('###### CLEARING TMQ ######')
-            self.transmoves_q.clear()
-            gc.collect()
-            print('###### CLEARED ######')
         if len(self.top_moves) > self.TT_SIZE:
             self.top_moves.clear()
             gc.collect()
@@ -530,31 +526,45 @@ class Engine(object):
         rooks = self.board.rooks & o
         queens = self.board.queens & o
 
-        e = self.PIECE_VALUES[chess.PAWN] * self._bb_count(pawns)
-        e += self.PIECE_VALUES[chess.KNIGHT] * self._bb_count(knights)
+        # pawn and knight hashing - note that for other pieces this wouldn't be sound because attacks depend on other pieces
+        if pawns in self.p_hash:
+            p_val = self.p_hash[pawns]
+        else:
+            p_val = self.PIECE_VALUES[chess.PAWN] * self._bb_count(pawns)
+            if self.endgame:
+                for sq in chess.scan_forward(pawns):
+                    p_val += self.EG_PAWN_SQ_TABLE[color][sq]
+            else:
+                for sq in chess.scan_forward(pawns):
+                    p_val += self.MG_PAWN_SQ_TABLE[color][sq]
+            self.p_hash[pawns] = p_val
+
+        if knights in self.n_hash:
+            n_val = self.n_hash[knights]
+        else:
+            n_val = self.PIECE_VALUES[chess.KNIGHT] * self._bb_count(knights)
+            for i in chess.scan_forward(knights):
+                n_val += self.KNIGHT_ATTACK_TABLE[i] * self.SQUARE_VALUE
+            self.n_hash[knights] = n_val
+
+        e = p_val + n_val
+
         e += self.PIECE_VALUES[chess.BISHOP] * self._bb_count(bishops)
         e += self.PIECE_VALUES[chess.ROOK] * self._bb_count(rooks)
         e += self.PIECE_VALUES[chess.QUEEN] * self._bb_count(queens)
 
         # NOTE: optimized for pypy: for loops are faster than sum in pypy3 - in python3 it's the other way around
 
-        # pawn attack not calculated because it's just a function of # of pawns and whether they're on the edge
-        for i in chess.scan_forward(knights):
-            e += self.KNIGHT_ATTACK_TABLE[i] * self.SQUARE_VALUE
         for i in chess.scan_forward(bishops | rooks | queens):
             e += self._bb_count(self.board.attacks_mask(i)) * self.SQUARE_VALUE
 
+        king_sq = (self.board.kings & o).bit_length() - 1
         if self.endgame:
-            for sq in chess.scan_forward(pawns):
-                e += self.EG_PAWN_SQ_TABLE[color][sq]
-            for sq in chess.scan_forward(self.board.kings & o):
-                e += self.EG_KING_SQ_TABLE[color][sq]
+            e += self.MG_KING_SQ_TABLE[color][king_sq]
         else:
-            for sq in chess.scan_forward(pawns):
-                e += self.MG_PAWN_SQ_TABLE[color][sq]
-            for sq in chess.scan_forward(self.board.kings & o):
-                e += self.MG_KING_SQ_TABLE[color][sq]
+            e += self.MG_KING_SQ_TABLE[color][king_sq]
 
+        
         # in endgame, count king attacks as well
 
         # perhaps use piece square table in addition
@@ -762,7 +772,7 @@ class Engine(object):
         # get memory size in MB of saved data - works only in python3, not in pypy3
         from sys import getsizeof
         size = 0
-        for struct in (self.transpositions, self.transmoves_q, self.top_moves):
+        for struct in (self.transpositions, self.top_moves):
             size += getsizeof(struct)
             size += sum(map(getsizeof, struct.values())) + sum(map(getsizeof, struct.keys()))
         return size / 1024 / 1024
