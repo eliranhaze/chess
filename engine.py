@@ -308,7 +308,7 @@ class Engine(object):
 
     def _check_endgame(self):
         if not self.endgame:
-            self.endgame = all(self._material_count(color) <= 13 for color in chess.COLORS)
+            self.endgame = all(self._material_count(color) <= 1300 for color in chess.COLORS)
             if self.endgame:
                 print('--- ENDGAME HAS BEGUN ---')
 
