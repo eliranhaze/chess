@@ -497,11 +497,13 @@ class Engine(object):
 
         self.depth = depth
 
-        # NOTE: gotta deal with repetitions as well!!
         orig_alpha = alpha
         board_hash = self._get_hash()
         entry = self.tp.get(board_hash)
         if entry and entry.depth >= depth:
+            if self.board.is_repetition(count = 3):
+                self.tp.pop(board_hash)
+                return 0
             val = entry.val
             entry_type = entry.type
             if entry_type == EXACT:
