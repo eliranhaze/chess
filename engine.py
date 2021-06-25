@@ -55,6 +55,8 @@ from stockfish import Stockfish
     # against 1500: 10-0 [1 draw]
     # - draw was undetected repetition because of tt
 
+# After double pawns eval and book openings, iterative 2.5 cutoff (depth 4-6, 6+ lategame):
+    # against 1800: 4-0 [0 draw]
 
 class Engine(object):
 
@@ -313,19 +315,11 @@ class Engine(object):
     def _iterative_deepening(self):
         t0 = time.time()
         self._check_endgame()
-        # idk if i can get a way with clearing tt only here, but clearing during search is a problem because it 
-        # can go against the whole iterative deepening idea, clearing tt e.g. at depth 4 just before search to depth 5,
-        # in such cases all the first iterations were just a waste of time and we'll have to do them again.
-        # - not exactly so, because we'll still have the top_moves dict which is rarely cleared.
-        # - the danger is excessive QS that can blow up the tt.
-        # - an alterantive of course is to do smart cleanup.
         self._table_maintenance()
-        print('deepening iteratively...')
         best_move = None
-        max_depth = self.ENDGAME_DEPTH if self.endgame else self.DEPTH
-        for depth in range(1, max_depth+20):
+        for depth in range(1, self.MAX_ITER_DEPTH):
             best_move, move_eval = self._search_root(depth = depth)
-            if time.time() - t0 > self.ITER_TIME_CUTOFF or abs(move_eval) == self.MATE_SCORE or depth == self.MAX_ITER_DEPTH:
+            if time.time() - t0 > self.ITER_TIME_CUTOFF or abs(move_eval) == self.MATE_SCORE:
                 break
         return best_move
 
