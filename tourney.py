@@ -5,6 +5,7 @@ e.LOG = False
 e.PRINT = False
 e.DISPLAY = False
 e.ITERATIVE = True
+e.ITER_TIME_CUTOFF = 3.5
 e.DEPTH = 4
 e.ENDGAME_DEPTH = 6
 
@@ -20,8 +21,6 @@ try:
             sf_elo = r
             winner = e.play_stockfish(sf_elo, self_color = True) # let's do all white for now
             results.setdefault(str(e), ([],[],[]))[0 if winner else (1 if winner is False else 2)].append(sf_elo) # wins, losses, draws
-            if e.endgame:
-                results.setdefault(str(e) + ' - endgame (depth %s)' % e.ENDGAME_DEPTH, ([],[],[]))[0 if winner else (1 if winner is False else 2)].append(sf_elo) # wins, losses, draws
 except KeyboardInterrupt:
     print('quitting...')
 
