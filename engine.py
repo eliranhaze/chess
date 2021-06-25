@@ -58,6 +58,14 @@ from stockfish import Stockfish
 # After double pawns eval and book openings, iterative 2.5 cutoff (depth 4-6, 6+ lategame):
     # against 1800: 4-0 [0 draw]
 
+from collections import namedtuple
+
+Entry = namedtuple('Entry', ['val', 'type', 'depth'])
+# Entry types
+EXACT = 0
+LOWER = 1
+UPPER = 2
+
 class Engine(object):
 
     LOG = False
@@ -187,8 +195,8 @@ class Engine(object):
         self.book = True
         self._hash = None
         self.transpositions = {}
-        self.tc = {}
         self.top_moves = {}
+        self.tp = {}
         self.p_hash = {}
         self.n_hash = {}
         self.r_hash = {}
@@ -202,6 +210,7 @@ class Engine(object):
                 'evp': 0,
                 'evt': 0,
                 'q': 0,
+                'h':0,
         }
 
     def game_pgn(self):
@@ -318,7 +327,7 @@ class Engine(object):
         self._check_endgame()
         self._table_maintenance()
         best_move = None
-        for depth in range(1, self.MAX_ITER_DEPTH):
+        for depth in range(1, self.MAX_ITER_DEPTH + 1):
             best_move, move_eval = self._search_root(depth = depth)
             if time.time() - t0 > self.ITER_TIME_CUTOFF or abs(move_eval) == self.MATE_SCORE:
                 break
@@ -337,6 +346,7 @@ class Engine(object):
     def _gen_moves(self):
         self.move_hits += 1
         board_hash = self._get_hash()
+        # NOTE: should we use move from tp instead checking depth etc?
         top_move = self.top_moves.get(board_hash)
         if top_move:
             self.top_hits += 1
@@ -353,6 +363,22 @@ class Engine(object):
 
     def _quiesce(self, alpha, beta): # TODO: also figure out how to time-limit
 
+        # probe tt: increases speed somewhat - in most cases just a bit
+        orig_alpha = alpha
+        board_hash = self._get_hash()
+        entry = self.tp.get(board_hash)
+        if entry:
+            val = entry.val
+            entry_type = entry.type
+            if entry_type == EXACT and alpha < val < beta:
+                return val
+            if entry_type == LOWER:
+                alpha = max(alpha, val)
+            else: # UPPER
+                beta = min(beta, val)
+            if alpha >= beta:
+                return val
+
         # remember that in negamax, both players are trying to maximize their score
         # alpha represents current player's best so far, and beta the opponent's best so far (from current player POV)
         stand_pat = self._evaluate_board()
@@ -360,6 +386,8 @@ class Engine(object):
         if stand_pat >= beta:
             # beta cutoff: the evaluated position is 'too good', because the opponent already has a way to avoid this
             # with a position for which there is this beta score, so there's no point in searching further down this road.
+            entry = Entry(beta, LOWER, 0)
+            self.tp[board_hash] = entry
             return beta
 
         # delta pruning
@@ -375,6 +403,7 @@ class Engine(object):
         if alpha < stand_pat:
             alpha = stand_pat
 
+        score = -float('inf')
         for move in self._gen_quiesce_moves():
 
             # move delta pruning
@@ -389,11 +418,22 @@ class Engine(object):
             self._unmake_move(move, piece_from, piece_to)
             if score >= beta:
                 self.top_moves[self._get_hash()] = move
+                entry = Entry(beta, LOWER, 0)
+                self.tp[board_hash] = entry
                 return beta
             if score > alpha:
                 alpha = score
                 # not fully sure that this is sound, since in QS we're not searching all moves
                 self.top_moves[self._get_hash()] = move
+
+        if score > -float('inf'):
+            if score <= orig_alpha:
+                entry_type = UPPER
+            elif score >= beta:
+                entry_type = LOWER
+            else:
+                entry_type = EXACT
+            self.tp[board_hash] = Entry(score, entry_type, 0)
 
         return alpha
 
@@ -407,7 +447,10 @@ class Engine(object):
         beta = float('inf')
         move_values = {}
 
+        prev_nodes = self.nodes
+
         for move in self._gen_moves():
+            t1 = time.time()
             self.depth = depth
             if self.PRINT:
                 print('evaluating move %s' % self.board.san(move))
@@ -419,6 +462,10 @@ class Engine(object):
                 best_value = value
                 best_move = move
             alpha = max(alpha, value)
+
+            if self.PRINT:
+                print('... %d nodes evaluated (%.4fs)' % (self.nodes - prev_nodes, time.time()-t1))
+            prev_nodes = self.nodes
 
         if self.PRINT:
             print('evals (depth = %s)' % depth)
@@ -450,6 +497,22 @@ class Engine(object):
 
         self.depth = depth
 
+        # NOTE: gotta deal with repetitions as well!!
+        orig_alpha = alpha
+        board_hash = self._get_hash()
+        entry = self.tp.get(board_hash)
+        if entry and entry.depth >= depth:
+            val = entry.val
+            entry_type = entry.type
+            if entry_type == EXACT:
+                return val
+            if entry_type == LOWER:
+                alpha = max(alpha, val)
+            else: # UPPER
+                beta = min(beta, val)
+            if alpha >= beta:
+                return val
+
         if depth == 0 or self.board.is_game_over():
             return self._quiesce(alpha, beta)
 
@@ -466,6 +529,7 @@ class Engine(object):
                 if e + self._max_opponent_piece_value() + max_pos_gain < alpha:
                     gen_moves = self._gen_checks
 
+        top_move = None
         for move in gen_moves():
             self.depth = depth
             piece_from, piece_to = self._make_move(move)
@@ -474,18 +538,31 @@ class Engine(object):
             if value > best_value:
                 best_value = value
                 if value > alpha:
-                    # store best move only when alpha is increased, otherwise we fail low.
-                    self.top_moves[self._get_hash()] = move
+                    top_move = move
+                    self.top_moves[board_hash] = top_move
                     alpha = value
                     if alpha >= beta:
                         # fail low: position is too good - opponent has an already searched way to avoid it.
                         break
+
+        if value <= orig_alpha:
+            entry_type = UPPER
+        elif value >= beta:
+            entry_type = LOWER
+        else:
+            entry_type = EXACT
+        self.tp[board_hash] = Entry(value, entry_type, depth)
         return alpha
 
     def _table_maintenance(self):
         if len(self.transpositions) > self.TT_SIZE:
             print('###### CLEARING TT ######')
             self.transpositions.clear()
+            gc.collect()
+            print('###### CLEARED ######')
+        if len(self.tp) > self.TT_SIZE:
+            print('###### CLEARING TP ######')
+            self.tp.clear()
             gc.collect()
             print('###### CLEARED ######')
         if len(self.top_moves) > self.TT_SIZE:
