@@ -1,4 +1,5 @@
 import chess
+import chess.polyglot
 import chess.svg
 import gc
 import random
@@ -12,7 +13,7 @@ from stockfish import Stockfish
         # - See: https://stackoverflow.com/questions/29990116/alpha-beta-prunning-with-transposition-table-iterative-deepening
     # - Then: improve evaluation king safety, pieces attacked (should be easy!), defended pieces, double/passed pawns, etc.
 # NOTE:
-    # - currently pypy3 runs this comfortably with depth 4
+    # - currently pypy3 runs this comfortably with depth 4 - now with 5
 
 # SOME RESULTS: playing with depth 3 against stockfish:
     # against 1350: 6-0 [0 draw]
@@ -181,6 +182,7 @@ class Engine(object):
     def _init_game_state(self):
         self.board = chess.Board()
         self.endgame = False
+        self.book = True
         self._hash = None
         self.transpositions = {}
         self.tc = {}
@@ -246,9 +248,12 @@ class Engine(object):
                 print('  breakdown:')
                 for x, dur in self.times.items():
                     print('  - %s: %.2fs (%.1f%%)' % (x, dur, 100*dur/tt))
-                print('top move hits: %d, total: %d (%.1f%%)' % (self.top_hits, self.move_hits, 100*self.top_hits/self.move_hits))
-                print('tt hits: %d, total: %d (%.1f%%)' % (self.tt, self.ev, 100*self.tt/self.ev))
-                print('total nodes evaluated: %d' % self.nodes)
+                if self.move_hits:
+                    print('top move hits: %d, total: %d (%.1f%%)' % (self.top_hits, self.move_hits, 100*self.top_hits/self.move_hits))
+                if self.ev:
+                    print('tt hits: %d, total: %d (%.1f%%)' % (self.tt, self.ev, 100*self.tt/self.ev))
+                if self.nodes:
+                    print('total nodes evaluated: %d' % self.nodes)
             self._display_board()
         print('Game over: %s' % self.board.result())
         print(self.game_pgn())
@@ -283,9 +288,26 @@ class Engine(object):
     def _select_move(self):
         self._table_maintenance()
         self._check_endgame()
+        book_move = self._select_book_move()
+        if book_move:
+            return book_move
         if self.ITERATIVE:
             return self._iterative_deepening()
         move, _  = self._search_root(depth = self.ENDGAME_DEPTH if self.endgame else self.DEPTH)
+        return move
+
+    def _select_book_move(self):
+        # book downloaded from: https://sites.google.com/site/computerschess/download?authuser=0
+        if not self.book:
+            return None
+        try:
+            with chess.polyglot.open_reader('/Users/eliran/Downloads/Perfect_2021/BIN/Perfect2021.bin') as reader:
+                move = reader.weighted_choice(self.board).move
+        except IndexError:
+            print('out of book!')
+            self.book = False
+            return None
+        print('selected book move: %s' % self.board.san(move))
         return move
 
     def _iterative_deepening(self):
@@ -527,6 +549,7 @@ class Engine(object):
         queens = self.board.queens & o
 
         # pawn and knight hashing - note that for other pieces this wouldn't be sound because attacks depend on other pieces
+        # TODO: another hashing idea - hash rooks for count, and hash rooks + file&rank for attack
         if pawns in self.p_hash:
             p_val = self.p_hash[pawns]
         else:
