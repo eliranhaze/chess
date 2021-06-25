@@ -649,7 +649,7 @@ class Engine(object):
             for fl in chess.BB_FILES:
                 p_count = self._bb_count(pawns & fl)
                 if p_count > 1:
-                    p_val -= (p_count-1) * 11
+                    p_val -= (p_count-1) * 15
             self.p_hash[pawns] = p_val
 
         if knights in self.n_hash:
