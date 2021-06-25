@@ -537,6 +537,11 @@ class Engine(object):
             else:
                 for sq in chess.scan_forward(pawns):
                     p_val += self.MG_PAWN_SQ_TABLE[color][sq]
+            # check for double pawns
+            for fl in chess.BB_FILES:
+                p_count = self._bb_count(pawns & fl)
+                if p_count > 1:
+                    p_val -= (p_count-1) * 11
             self.p_hash[pawns] = p_val
 
         if knights in self.n_hash:
