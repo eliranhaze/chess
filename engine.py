@@ -493,7 +493,7 @@ class Engine(object):
             if move != top_move or move.promotion or self._is_move_check(move):
                 yield move
 
-    def _negamax(self, depth, alpha, beta):
+    def _negamax(self, depth, alpha, beta, can_null = True):
 
         self.depth = depth
 
@@ -520,6 +520,15 @@ class Engine(object):
 
         value = -float('inf')
         best_value = -float('inf')
+
+        # null move pruning
+        if can_null and depth > 2 and beta < float('inf') and not self.endgame:
+            R = 2 if depth < 6 else 3
+            self._make_move(chess.Move.null())
+            value = -self._negamax(depth - 1 - R, -beta, -beta + 1, False)
+            self._unmake_move(chess.Move.null(), None, None)
+            if value >= beta:
+                return beta
 
         # futility pruning
         gen_moves = self._gen_moves
