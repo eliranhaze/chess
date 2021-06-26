@@ -71,6 +71,7 @@ class Engine(object):
     LOG = False
     PRINT = False
     DISPLAY = False
+    BOOK = True
     ITERATIVE = True
     ITER_TIME_CUTOFF = 4.5
     MAX_ITER_DEPTH = 99
@@ -207,7 +208,7 @@ class Engine(object):
     def _init_game_state(self):
         self.board = chess.Board()
         self.endgame = False
-        self.book = True
+        self.book = self.BOOK
         self._hash = None
         self.evals = {}
         self.top_moves = {}
@@ -251,7 +252,7 @@ class Engine(object):
         while not self.board.is_game_over():
             if self.board.turn == self_color:
                 self._play_move()
-                time.sleep(.5) # let the cpu relax for a moment
+                time.sleep(1) # let the cpu relax for a moment
             else:
                 move = sf.play(board = self.board, limit = chess.engine.Limit(time=.1)).move
                 print('sf playing %s' % self.board.san(move))
@@ -550,7 +551,7 @@ class Engine(object):
         best_value = -float('inf')
 
         # null move pruning
-        if can_null and depth > 2 and beta < float('inf') and not self.endgame and not self.is_check():
+        if can_null and depth > 2 and beta < float('inf') and not self.endgame and not self.board.is_check():
             R = 2 if depth < 6 else 3
             self._make_move(chess.Move.null())
             value = -self._negamax(depth - 1 - R, -beta, -beta + 1, False)
@@ -722,6 +723,9 @@ class Engine(object):
         return e
 
     def _king_pawns_eval(self, king_sq, pawns, color):
+        # TODO: perhaps also give small bonus for any other pieces sheltering king
+        #       can just intersect them with KING_SURROUNDING_SQUARES - but not here, as this hashes
+        #       only kings and pawns
         if not king_sq in self.KING_SHELTER_SQUARES[color] or self.endgame:
             return 0
         kp_key = (king_sq, pawns)
