@@ -89,6 +89,21 @@ class Engine(object):
     # rank just before promotion, for either side - for checking for promotion moves
     PROMOTION_BORDER = [chess.BB_RANK_2, chess.BB_RANK_7]
 
+    KING_SHELTER_SQUARES = [(56,57,58,62,63),(0,1,2,6,7)]
+    PAWN_SHIELD_MASKS = {
+            # currently only first rank - perhaps add second later
+            0: (chess.SquareSet([8,9]).mask, chess.SquareSet([16,17]).mask),
+            1: (chess.SquareSet([8,9,10]).mask, chess.SquareSet([16,17,18]).mask),
+            2: (chess.SquareSet([9,10,11]).mask, chess.SquareSet([17,18,19]).mask),
+            6: (chess.SquareSet([13,14,15]).mask, chess.SquareSet([21,22,23]).mask),
+            7: (chess.SquareSet([14,15]).mask, chess.SquareSet([22,23]).mask),
+            56: (chess.SquareSet([48,49]).mask, chess.SquareSet([40,41]).mask),
+            57: (chess.SquareSet([48,49,50]).mask, chess.SquareSet([40,41,42]).mask),
+            58: (chess.SquareSet([49,50,51]).mask, chess.SquareSet([41,42,43]).mask),
+            62: (chess.SquareSet([53,54,55]).mask, chess.SquareSet([45,46,47]).mask),
+            63: (chess.SquareSet([54,55]).mask, chess.SquareSet([46,47]).mask),
+        }
+
     # DIRECTIONS
     N = 8
     S = -8
@@ -200,6 +215,7 @@ class Engine(object):
         self.p_hash = {}
         self.n_hash = {}
         self.r_hash = {}
+        self.kp_hash = {}
         self.move_hits = 0
         self.top_hits = 0
         self.tt = 0
@@ -220,6 +236,10 @@ class Engine(object):
         for m in self.board.move_stack:
             node = node.add_variation(m)
         return str(game)
+
+    def set_fen(self, fen):
+        self._init_game_state()
+        self.board = chess.Board(fen)
 
     def play_stockfish(self, level, self_color = True):
         import chess.engine
@@ -581,6 +601,7 @@ class Engine(object):
             'p_hash': self.TT_SIZE/10,
             'n_hash': self.TT_SIZE/10,
             'r_hash': self.TT_SIZE/10,
+            'kp_hash': self.TT_SIZE/10,
         }
         for var, limit in limits.items():
             table = getattr(self, var)
@@ -677,7 +698,10 @@ class Engine(object):
             r_val = self.PIECE_VALUES[chess.ROOK] * self._bb_count(rooks)
             self.r_hash[rooks] = r_val
 
-        e = p_val + n_val + r_val
+        king_sq = (self.board.kings & o).bit_length() - 1
+        kp_val = self._king_pawns_eval(king_sq, pawns, color)
+
+        e = p_val + n_val + r_val + kp_val
 
         e += self.PIECE_VALUES[chess.BISHOP] * self._bb_count(bishops)
         e += self.PIECE_VALUES[chess.QUEEN] * self._bb_count(queens)
@@ -687,23 +711,41 @@ class Engine(object):
         for i in chess.scan_forward(bishops | rooks | queens):
             e += self._bb_count(self.board.attacks_mask(i)) * self.SQUARE_VALUE
 
-        king_sq = (self.board.kings & o).bit_length() - 1
         if self.endgame:
-            e += self.MG_KING_SQ_TABLE[color][king_sq]
+            e += self.EG_KING_SQ_TABLE[color][king_sq]
         else:
             e += self.MG_KING_SQ_TABLE[color][king_sq]
 
-        
-        # TODO: KING SAFETY! Look at this loss to sf 1800: https://lichess.org/mlm0IUdf
-            # - first blunder and subsequent mistakes probably from lack of awareness to king safety
-            # - also walked right into mate in 5 - just a depth issue?
-
         # in endgame, count king attacks as well
-
-        # perhaps use piece square table in addition
 
         # need also to compute defense value as below -- might be very easy&fast using the attacks mask from above
         return e
+
+    def _king_pawns_eval(self, king_sq, pawns, color):
+        if not king_sq in self.KING_SHELTER_SQUARES[color]:
+            return 0
+        kp_key = (king_sq, pawns)
+        if kp_key in self.kp_hash:
+            return self.kp_hash[kp_key]
+        # king is in shelter position, calculate pawn shield bonus
+        pawn_shields = self.PAWN_SHIELD_MASKS[king_sq]
+        shield_center = 2**(king_sq + 8 * (-1,1)[color])
+        shield1_count = self._bb_count(pawns & pawn_shields[0])
+        shield2_count = self._bb_count(pawns & pawn_shields[1])
+        # bonus for pawn at shield center, and for pawns at shield rank and next rank
+        kp_val = 15 if shield_center & pawns else -5
+        kp_val += shield1_count * 20
+        kp_val += shield2_count * 10
+        for f in chess.BB_FILES:
+            shield_file = f & (pawn_shields[0] | pawn_shields[1])
+            if shield_file and not (pawns & shield_file):
+                # penalty for open file next to king
+                kp_val -= 20
+                if shield_file & shield_center:
+                    # extra penalty for open file in front of king
+                    kp_val -= 25
+        self.kp_hash[kp_key] = kp_val
+        return kp_val
 
     def _material_count(self, color):
         o = self.board.occupied_co[color]
