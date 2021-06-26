@@ -550,7 +550,7 @@ class Engine(object):
         best_value = -float('inf')
 
         # null move pruning
-        if can_null and depth > 2 and beta < float('inf') and not self.endgame:
+        if can_null and depth > 2 and beta < float('inf') and not self.endgame and not self.is_check():
             R = 2 if depth < 6 else 3
             self._make_move(chess.Move.null())
             value = -self._negamax(depth - 1 - R, -beta, -beta + 1, False)
