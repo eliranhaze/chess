@@ -722,7 +722,7 @@ class Engine(object):
         return e
 
     def _king_pawns_eval(self, king_sq, pawns, color):
-        if not king_sq in self.KING_SHELTER_SQUARES[color]:
+        if not king_sq in self.KING_SHELTER_SQUARES[color] or self.endgame:
             return 0
         kp_key = (king_sq, pawns)
         if kp_key in self.kp_hash:
