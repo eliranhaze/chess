@@ -230,9 +230,16 @@ class Engine(object):
                 'h':0,
         }
 
-    def game_pgn(self):
+    def game_pgn(self, white = '', black = ''):
         import chess.pgn
         game = chess.pgn.Game()
+        game.headers['Event'] = 'Engine game'
+        game.headers['Date'] = time.ctime()
+        game.headers['White'] = white
+        game.headers['Black'] = black
+        game.headers['Result'] = self.board.result()
+        game.headers.pop('Site')
+        game.headers.pop('Round')
         node = game
         for m in self.board.move_stack:
             node = node.add_variation(m)
@@ -260,7 +267,8 @@ class Engine(object):
             self._display_board()
         sf.quit()
         print('Game over: %s' % self.board.result())
-        print(self.game_pgn())
+        players = ['engine', 'stockfish %d' % level]
+        print(self.game_pgn(white = players[not self_color], black = players[self_color]))
         return self.board.outcome().winner
 
     def play(self, player_color = chess.WHITE, board = None):
@@ -289,7 +297,7 @@ class Engine(object):
                     print('total nodes evaluated: %d' % self.nodes)
             self._display_board()
         print('Game over: %s' % self.board.result())
-        print(self.game_pgn())
+        print(self.game_pgn(white = 'human' if player_color else 'engine', black = 'engine' if player_color else 'human'))
 
     def _display_board(self):
         if self.DISPLAY:
