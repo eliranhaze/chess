@@ -98,7 +98,7 @@ def print_results():
 def get_perf_elo(opp_ratings, score):
     if score in (0, len(opp_ratings)):
         print('cannot determine performance rating with 0% or 100% score')
-        return
+        return -1
     import requests
     from bs4 import BeautifulSoup as bs
     url = 'http://paxmans.net/performance_calc.php'

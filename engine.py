@@ -71,13 +71,14 @@ class Engine(object):
     LOG = False
     PRINT = False
     DISPLAY = False
+
     BOOK = True
     ITERATIVE = True
     ITER_TIME_CUTOFF = 4.5
     MAX_ITER_DEPTH = 99
- 
     DEPTH = 3
     ENDGAME_DEPTH = DEPTH + 2
+
     TT_SIZE = 4e6 # 4e6 seems to cap around 2G - a bit more with iterative deepening
     Z_HASHING = False
 
@@ -86,6 +87,7 @@ class Engine(object):
 
     PIECE_VALUES = [-1, 100, 320, 330, 500, 900, 20000] # none, pawn, knight, bishop, rook, queen, king - list for efficiency
     MATE_SCORE = 99900
+    RESIGN_AT = -(PIECE_VALUES[chess.QUEEN] + PIECE_VALUES[chess.KNIGHT])
 
     # rank just before promotion, for either side - for checking for promotion moves
     PROMOTION_BORDER = [chess.BB_RANK_2, chess.BB_RANK_7]
@@ -208,8 +210,10 @@ class Engine(object):
     def _init_game_state(self):
         self.board = chess.Board()
         self.endgame = False
+        self.resigned = False
         self.book = self.BOOK
         self._hash = None
+        self.move_evals = []
         self.evals = {}
         self.top_moves = {}
         self.tp = {}
@@ -237,7 +241,7 @@ class Engine(object):
         game.headers['Date'] = time.ctime()
         game.headers['White'] = white
         game.headers['Black'] = black
-        game.headers['Result'] = self.board.result()
+        game.headers['Result'] = self._game_result()
         game.headers.pop('Site')
         game.headers.pop('Round')
         node = game
@@ -256,7 +260,8 @@ class Engine(object):
         sf.configure({'UCI_LimitStrength':True})
         sf.configure({'UCI_Elo':level})
         self._init_game_state()
-        while not self.board.is_game_over():
+        self.color = self_color
+        while not self._is_game_over():
             if self.board.turn == self_color:
                 self._play_move()
                 time.sleep(1) # let the cpu relax for a moment
@@ -266,10 +271,11 @@ class Engine(object):
                 self.board.push(move)
             self._display_board()
         sf.quit()
-        print('Game over: %s' % self.board.result())
+        print('Game over: %s' % self._game_result())
         players = ['engine', 'stockfish %d' % level]
         print(self.game_pgn(white = players[not self_color], black = players[self_color]))
-        return self.board.outcome().winner == self_color
+        winner = not self_color if self.resigned else self.board.outcome().winner
+        return winner == self_color
 
     def play(self, player_color = chess.WHITE, board = None):
         self.board = board if board else chess.Board()
@@ -277,7 +283,7 @@ class Engine(object):
         self.player_color = player_color
         self.color = not self.player_color
         tt = 0
-        while not self.board.is_game_over():
+        while not self._is_game_over():
             if self.board.turn == player_color:
                 self._player_move()
             else:
@@ -296,8 +302,34 @@ class Engine(object):
                 if self.nodes:
                     print('total nodes evaluated: %d' % self.nodes)
             self._display_board()
-        print('Game over: %s' % self.board.result())
+        print('Game over: %s' % self._game_result())
         print(self.game_pgn(white = 'human' if player_color else 'engine', black = 'engine' if player_color else 'human'))
+
+    # TODO: create a new Game class for this stuff - also for the white not over that is duplicated above
+    def _is_game_over(self):
+        if self.board.is_game_over():
+            return True
+        if len(self.move_evals) < 5:
+            return False
+        # consider resignation:
+        #  - we resign if both eval and material are too low, or
+        #  - if eval has been low for several moves
+        mat_diff = self._material_count(self.color) - self._material_count(not self.color)
+        mat_cutoff = self.RESIGN_AT * .75
+        if mat_diff < mat_cutoff:
+            num_evals = 2
+        else:
+            num_evals = 3
+        last_evals = [v for _, v in self.move_evals[-num_evals:]]
+        if all(v <= self.RESIGN_AT for v in last_evals):
+            self.resigned = True
+            return True
+        return False
+
+    def _game_result(self):
+        if self.resigned:
+            return '0-1 (white resigns)' if self.color else '1-0 (black resigns)'
+        return self.board.result()
 
     def _display_board(self):
         if self.DISPLAY:
@@ -333,8 +365,10 @@ class Engine(object):
         if book_move:
             return book_move
         if self.ITERATIVE:
-            return self._iterative_deepening()
-        move, _  = self._search_root(depth = self.ENDGAME_DEPTH if self.endgame else self.DEPTH)
+            move, best_eval = self._iterative_deepening()
+        else:
+            move, best_eval  = self._search_root(depth = self.ENDGAME_DEPTH if self.endgame else self.DEPTH)
+        self.move_evals.append((move, best_eval))
         return move
 
     def _select_book_move(self):
@@ -368,7 +402,7 @@ class Engine(object):
             best_move, move_eval = self._search_root(depth = depth)
             if time.time() - t0 > self.ITER_TIME_CUTOFF or abs(move_eval) == self.MATE_SCORE:
                 break
-        return best_move
+        return best_move, move_eval
 
     def _check_endgame(self):
         if not self.endgame:
