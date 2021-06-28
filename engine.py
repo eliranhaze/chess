@@ -74,10 +74,10 @@ class Engine(object):
 
     BOOK = True
     ITERATIVE = True
-    ITER_TIME_CUTOFF = 4.5
     MAX_ITER_DEPTH = 99
     DEPTH = 3
     ENDGAME_DEPTH = DEPTH + 2
+    MOVE_TIME_LIMIT = 1
 
     TT_SIZE = 4e6 # 4e6 seems to cap around 2G - a bit more with iterative deepening
     Z_HASHING = False
@@ -253,7 +253,8 @@ class Engine(object):
         self._init_game_state()
         self.board = chess.Board(fen)
 
-    def play_stockfish(self, level, self_color = True):
+    def play_stockfish(self, level, self_color = True, move_time = .1):
+        # TODO: check if ponder is on for sf, and turn off if so
         import chess.engine
         print('%s playing stockfish rated %d as %s' % (self, level, ['black','white'][self_color]))
         sf = chess.engine.SimpleEngine.popen_uci('/usr/local/bin/stockfish')
@@ -264,9 +265,9 @@ class Engine(object):
         while not self._is_game_over():
             if self.board.turn == self_color:
                 self._play_move()
-                time.sleep(1) # let the cpu relax for a moment
+                #time.sleep(.5) # let the cpu relax for a moment
             else:
-                move = sf.play(board = self.board, limit = chess.engine.Limit(time=.1)).move
+                move = sf.play(board = self.board, limit = chess.engine.Limit(time=move_time)).move
                 print('sf playing %s' % self.board.san(move))
                 self.board.push(move)
             self._display_board()
@@ -358,7 +359,11 @@ class Engine(object):
         print('playing %s' % self.board.san(move))
         self._make_move(move)
 
+    def _is_move_time_over(self):
+        return time.time() - self._move_start_time > self.MOVE_TIME_LIMIT
+
     def _select_move(self):
+        self._move_start_time = time.time()
         self._table_maintenance()
         self._check_endgame()
         book_move = self._select_book_move()
@@ -400,7 +405,7 @@ class Engine(object):
         best_move = None
         for depth in range(1, self.MAX_ITER_DEPTH + 1):
             best_move, move_eval = self._search_root(depth = depth)
-            if time.time() - t0 > self.ITER_TIME_CUTOFF or abs(move_eval) == self.MATE_SCORE:
+            if abs(move_eval) == self.MATE_SCORE or self._is_move_time_over():
                 break
         return best_move, move_eval
 
@@ -550,6 +555,14 @@ class Engine(object):
             if self.PRINT:
                 print('... %d nodes evaluated (%.4fs)' % (self.nodes - prev_nodes, time.time()-t1))
             prev_nodes = self.nodes
+
+            # consider terminating due to time
+            # - note that the time limit is not exact because we are checking it only after a best move,
+            #   which may occur after a long q search.
+            # - it should be possible to check time limit at qs/negamax levels as well, and store best_move internally
+            #   to return it at the end instead of some dummy eval.
+            if self._is_move_time_over():
+                break
 
         if self.PRINT:
             print('evals (depth = %s)' % depth)
