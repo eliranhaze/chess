@@ -8,18 +8,13 @@ def get_args():
     parser.add_argument('--num_games', type=int, required=True)
     parser.add_argument('--rating', dest='rating', type=int, required=True)
     parser.add_argument('--iterative', dest='iterative', action='store_true')
-    parser.add_argument('--iter_cutoff', dest='iter_cutoff', type=float)
+    parser.add_argument('--move_time', dest='move_time', type=float, required=True)
     parser.add_argument('--depth', dest='depth', type=int)
     parser.add_argument('--book', dest='book', action='store_true')
     args = parser.parse_args()
-    if args.iterative:
-        if not args.iter_cutoff:
-            print('iter_cutoff required when --iterative is set')
-            exit()
-    else:
-        if not args.depth:
-            print('depth is required if --iterative is not set')
-            exit()
+    if not args.iterative and not args.depth:
+        print('depth is required if --iterative is not set')
+        exit()
     return args
 
 args = get_args()
@@ -34,12 +29,14 @@ e.LOG = False
 e.PRINT = False
 e.DISPLAY = False
 e.ITERATIVE = args.iterative
-e.ITER_TIME_CUTOFF = args.iter_cutoff
-e.MAX_ITER_DEPTH = 9
+e.MOVE_TIME_LIMIT = args.move_time
+e.MAX_ITER_DEPTH = 11
 if args.depth:
     e.DEPTH = args.depth
     e.ENDGAME_DEPTH = e.DEPTH + 2
 e.BOOK = args.book
+
+OPP_MOVE_TIME = args.move_time
 
 wins = []
 draws = []
@@ -60,7 +57,7 @@ def run():
         print('---')
         print('game %d/%d against %s' % (i+1,NUM_GAMES, opp_rating), flush = True)
         print('---')
-        winner = e.play_stockfish(opp_rating, self_color = color)
+        winner = e.play_stockfish(opp_rating, self_color = color, move_time = OPP_MOVE_TIME)
         if winner:
             wins.append(opp_rating)
         elif winner is False:
@@ -79,7 +76,7 @@ def adjust_opponent_rating(opp_rating):
         if score() == 0:
             # if zero score, decrease opponent rating
             return opp_rating - adjustment
-    return OPP_START_RATING + random.choice([50,-50])
+    return OPP_START_RATING + random.choice([50,0,-50])
 
 def score():
     return len(wins) + len(draws) * .5
