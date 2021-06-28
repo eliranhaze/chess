@@ -11,6 +11,7 @@ def get_args():
     parser.add_argument('--move_time', dest='move_time', type=float, required=True)
     parser.add_argument('--depth', dest='depth', type=int)
     parser.add_argument('--book', dest='book', action='store_true')
+    parser.add_argument('--sf_path', dest='sf_path', type=str)
     args = parser.parse_args()
     if not args.iterative and not args.depth:
         print('depth is required if --iterative is not set')
@@ -30,7 +31,7 @@ e.PRINT = False
 e.DISPLAY = False
 e.ITERATIVE = args.iterative
 e.MOVE_TIME_LIMIT = args.move_time
-e.MAX_ITER_DEPTH = 11
+e.MAX_ITER_DEPTH = 15
 if args.depth:
     e.DEPTH = args.depth
     e.ENDGAME_DEPTH = e.DEPTH + 2
@@ -57,7 +58,13 @@ def run():
         print('---')
         print('game %d/%d against %s' % (i+1,NUM_GAMES, opp_rating), flush = True)
         print('---')
-        winner = e.play_stockfish(opp_rating, self_color = color, move_time = OPP_MOVE_TIME)
+        kwargs = {
+                'self_color': color,
+                'move_time': OPP_MOVE_TIME,
+            }
+        if args.sf_path:
+            kwargs['stockfish_path'] = args.sf_path
+        winner = e.play_stockfish(opp_rating, **kwargs)
         if winner:
             wins.append(opp_rating)
         elif winner is False:

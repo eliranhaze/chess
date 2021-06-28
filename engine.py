@@ -253,14 +253,15 @@ class Engine(object):
         self._init_game_state()
         self.board = chess.Board(fen)
 
-    def play_stockfish(self, level, self_color = True, move_time = .1):
+    def play_stockfish(self, level, self_color = True, move_time = .1, stockfish_path = '/usr/local/bin/stockfish'):
         # TODO: check if ponder is on for sf, and turn off if so
         import chess.engine
         print('%s playing stockfish rated %d as %s' % (self, level, ['black','white'][self_color]))
-        sf = chess.engine.SimpleEngine.popen_uci('/usr/local/bin/stockfish')
+        sf = chess.engine.SimpleEngine.popen_uci(stockfish_path)
         sf.configure({'UCI_LimitStrength':True})
         sf.configure({'UCI_Elo':level})
         self._init_game_state()
+
         self.color = self_color
         while not self._is_game_over():
             if self.board.turn == self_color:
