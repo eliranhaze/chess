@@ -40,3 +40,21 @@ against 1900: 1-14 [0 draw]
 against 1850: 0-8 [0 draw]
 overall score: 3/31
 performance rating (used site manually): 1490 (wut??)
+
+=== results from google colab - with stockfish 13 (previous results use 12) ===
+
+tourney.py --num_games 30 --rating 1600 --iterative --move_time 1.5 --book
+results:
+against 1600: 5-9 [0 draw]
+against 1650: 3-7 [0 draw]
+against 1550: 3-3 [0 draw]
+overall score: 11/30
+performance rating: 1509
+
+tourney.py --num_games 30 --rating 1600 --iterative --move_time 1.5
+results:
+against 1600: 4-5 [0 draw]
+against 1550: 4-5 [0 draw]
+against 1650: 6-6 [0 draw]
+overall score: 14/30
+performance rating: 1582
