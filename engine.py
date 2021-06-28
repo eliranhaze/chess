@@ -571,7 +571,7 @@ class Engine(object):
                 print('%s: %.2f' % (self.board.san(move), val/100))
         else:
             print('best eval: %.2f (depth = %s)' % (move_values[best_move]/100, depth))
-        print('took %.1fs' % (time.time()-t0))
+        #print('took %.1fs' % (time.time()-t0))
 
         return best_move, move_values[best_move]
 
