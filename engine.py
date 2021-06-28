@@ -380,11 +380,11 @@ class Engine(object):
     def _select_book_move(self):
         book_files = [
             # book downloaded from: https://sites.google.com/site/computerschess/download
-            '/Users/eliran/Downloads/Perfect_2021/BIN/Perfect2021.bin',
+            'books/Perfect2021.bin',
             # books from http://rebel13.nl/prodeo/prodeo-3.0.html
-            '/Users/eliran/Downloads/ProDeo30/books/ProDeo.bin',
-            '/Users/eliran/Downloads/ProDeo30/books/sf12.bin',
-            '/Users/eliran/Downloads/ProDeo30/books/usb.bin',
+            'books/ProDeo.bin',
+            'books/sf12.bin',
+            'books/usb.bin',
         ]
         if not self.book:
             return
