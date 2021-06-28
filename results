@@ -1,0 +1,42 @@
+tourney.py --num_games 20 --rating 1600 --iterative --iter_cutoff 0.8 --book
+results:
+against 1650: 5-2 [0 draw]
+against 1550: 11-2 [0 draw]
+overall score: 16/20
+performance rating: 1827
+
+tourney.py --num_games 20 --rating 1600 --iterative --iter_cutoff 0.8
+results:
+against 1650: 9-3 [0 draw]
+against 1550: 6-2 [0 draw]
+overall score: 15/20
+performance rating: 1803
+
+-- after inf fix and time limit (in prev results sf had 0.1s limit while we had much higher) --
+
+pypy3 tourney.py --num_games 25 --rating 1600 --iterative  --move_time 2 --book
+results:
+against 1550: 6-1 [0 draw]
+against 1600: 6-2 [0 draw]
+against 1650: 7-3 [0 draw]
+overall score: 19/25
+performance rating: 1808
+
+pypy3 tourney.py --num_games 25 --rating 1600 --iterative  --move_time 2
+results:
+against 1650: 2-6 [0 draw]
+against 1600: 6-6 [0 draw]
+against 1550: 3-2 [0 draw]
+overall score: 11/25
+performance rating: 1563
+
+# hmm... seems suspociously low? is book that good?
+
+pypy3 tourney.py --num_games 100 --rating 1850 --iterative  --move_time 2 --book
+run stopped
+results:
+against 1800: 2-6 [0 draw]
+against 1900: 1-14 [0 draw]
+against 1850: 0-8 [0 draw]
+overall score: 3/31
+performance rating (used site manually): 1490 (wut??)
