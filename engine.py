@@ -434,6 +434,11 @@ class Engine(object):
 
     def _quiesce(self, alpha, beta): # TODO: also figure out how to time-limit
 
+        # NOTE: If I'm in check, it's not a quiet position - so it needs to be resolved before
+        #       evaluating. So we might test if check and if so go another depth level.
+        #       Problem might be that check test is expensive.
+        #       OTOH, we do that only when we don't fail high, or do QS capture search, or delta prune...
+
         # probe tt: increases speed somewhat - in most cases just a bit
         orig_alpha = alpha
         board_hash = self._get_hash()
@@ -441,6 +446,9 @@ class Engine(object):
         if entry:
             val = entry.val
             entry_type = entry.type
+            # TODO: alpha<val<beta may not be needed - it was said in talkchess in response
+            # to that zensomething user who posted her code
+            # idea was that if it's exact then val is going to be between alpha and beta anyway
             if entry_type == EXACT and alpha < val < beta:
                 return val
             if entry_type == LOWER:
@@ -497,10 +505,13 @@ class Engine(object):
                 # not fully sure that this is sound, since in QS we're not searching all moves
                 self.top_moves[self._get_hash()] = move
 
+        # TODO: FIXME: this condition should be removed - this is probably the same thing as in 
+        #              negamax that i fixed - gotta store alpha/beta not score if not exact
         if score > -float('inf'):
             if score <= orig_alpha:
                 entry_type = UPPER
             elif score >= beta:
+                # TODO: is this code reachable? don't we return above if this happens?
                 entry_type = LOWER
             else:
                 entry_type = EXACT
@@ -508,12 +519,14 @@ class Engine(object):
 
         return alpha
 
+    # NOTE: for ideas on how to improve search, with details and elo estimates, look here:
+    #       - https://github.com/AndyGrant/Ethereal/blob/master/src/search.c
     def _search_root(self, depth):
 
         t0 = time.time()
         self.depth = depth
         best_move = None
-        best_value = -float('inf')
+        best_value = -float('inf') # TODO: change to ints for consistency
         alpha = -float('inf')
         beta = float('inf')
         move_values = {}
@@ -629,9 +642,14 @@ class Engine(object):
 
         if value <= orig_alpha:
             entry_type = UPPER
+            # remember alpha as upper bound - we didn't manage to increase it
+            value = alpha
         elif value >= beta:
             entry_type = LOWER
+            # remember beta as lower bound - the position is too good
+            value = beta
         else:
+            # remember exact value higher than alpha but still lower than beta
             entry_type = EXACT
         self.tp[board_hash] = Entry(value, entry_type, depth)
         return alpha
