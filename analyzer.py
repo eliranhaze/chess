@@ -102,13 +102,13 @@ def process(pgn_filename):
         for pk in game_bp:
             score = bpk.get(pk, (0,0))
             bpk[pk] = (score[0] + bres, score[1] + 1)
-        if games_processed % 5000 == 0:
+        if games_processed % 10000 == 0:
             print('processed: %d (%d read), p count: %d' %
                     (games_processed, games_read, len(wpk) + len(bpk)), flush=True)
         game = chess.pgn.read_game(pgn)
     return wpk, bpk
 
-def combine_pkls(pkl_name1, pkl_name2):
+def combine_pkls(pkl_name1, pkl_name2, outname):
     d1 = pickle.load(open(pkl_name1, 'rb'))
     d2 = pickle.load(open(pkl_name2, 'rb'))
     lens = (len(d1), len(d2))
@@ -119,7 +119,7 @@ def combine_pkls(pkl_name1, pkl_name2):
         else:
             d1[k] = v
     print('combined %d and %d into %d items' % (lens[0], lens[1], len(d1)))
-    new_filename = '%s_%s' % (pkl_name1.replace('.pkl',''), pkl_name2)
+    new_filename = outname
     pickle.dump(d1, open(new_filename, 'wb'))
     print('created file: %s' % new_filename)
 
@@ -154,12 +154,12 @@ def print_board(p, k, color):
 
 def main():
     """
-    Usage: pypy3 analyzer.py [pgn] to process pgn file and save data in pkl
-     Or: pypy3 analyzer.py combine [pkl1] [pkl2] to combine pkls
+    Usage: pypy3 analyzer.py [pgn] [output] to process pgn file and save data in pkl
+     Or: pypy3 analyzer.py combine [pkl1] [pkl2] [output] to combine pkls
      Or: pypy3 analyzer.py report [pkl] [num_pawns] to run report and print top/bottom positions
     """
     if sys.argv[1] == 'combine':
-        combine_pkls(sys.argv[2], sys.argv[3])
+        combine_pkls(sys.argv[2], sys.argv[3], sys.argv[4])
         return
     elif sys.argv[1] == 'report':
         report(sys.argv[2], num_pawns = int(sys.argv[3]) if len(sys.argv) > 3 else None)
