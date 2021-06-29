@@ -277,7 +277,7 @@ class Engine(object):
         players = ['engine', 'stockfish %d' % level]
         print(self.game_pgn(white = players[not self_color], black = players[self_color]))
         winner = not self_color if self.resigned else self.board.outcome().winner
-        return winner == self_color
+        return None if winner is None else winner == self_color
 
     def play(self, player_color = chess.WHITE, board = None):
         self.board = board if board else chess.Board()

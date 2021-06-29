@@ -58,3 +58,23 @@ against 1550: 4-5 [0 draw]
 against 1650: 6-6 [0 draw]
 overall score: 14/30
 performance rating: 1582
+
+--
+June 28, Google Colab
+tourney.py --num_games 50 --rating 1600 --iterative --move_time 2 --sf_path /content/chess/stockfish13 --book
+results:
+against 1550: 8-7 [0 draw]
+against 1650: 9-5 [0 draw]
+against 1600: 5-6 [0 draw]
+overall score: 22/40
+performance rating: 1634
+
+tourney.py --num_games 50 --rating 1600 --iterative --move_time 2 --sf_path /content/chess/stockfish13
+results:
+against 1650: 8-10 [0 draw]
+against 1600: 9-10 [0 draw]
+against 1550: 6-7 [0 draw]
+overall score: 23/50
+performance rating: 1577
+
+NOTE: just found a bug that draws were reported as losses - shouldn't have affected results that much, but still.

@@ -31,7 +31,7 @@ e.PRINT = False
 e.DISPLAY = False
 e.ITERATIVE = args.iterative
 e.MOVE_TIME_LIMIT = args.move_time
-e.MAX_ITER_DEPTH = 15
+e.MAX_ITER_DEPTH = 12 # must be limited due to memory explosion!
 if args.depth:
     e.DEPTH = args.depth
     e.ENDGAME_DEPTH = e.DEPTH + 2

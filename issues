@@ -207,3 +207,87 @@ Game over: 0-1
 [Result "0-1"]
 
 1. d4 Na6 2. Qd3 Nb4 3. Qc3 Nd5 4. Qg3 Ndf6 5. Nc3 e6 6. e4 d5 7. exd5 Nxd5 8. Nf3 Ngf6 9. Bd3 Nb4 10. O-O Be7 11. Qxg7 Rg8 12. Bb5+ c6 13. Qh6 Nxc2 14. Rb1 cxb5 15. Qd2 b4 16. Qxc2 bxc3 17. bxc3 Qd5 18. Qe2 b6 19. Bf4 Bb7 20. Bg3 Qh5 21. d5 Bxd5 22. Qb5+ Kf8 23. Qd3 Be4 24. Qc4 Re8 25. Rb5 Qg4 26. h3 Qg6 27. Rg5 b5 28. Qxb5 Qh6 29. Bf4 Rg6 30. Rxg6 Qxg6 31. Ng5 Nd5 32. Nxe4 Nxf4 33. Ng3 Nd5 34. Re1 Qc2 35. Ne4 Rc8 36. a4 h5 37. a5 Rd8 38. a6 Qa2 39. Rd1 Rc8 40. Re1 Qc2 41. Qb7 Rc7 42. Qb8+ Kg7 43. Qb5 h4 44. Re2 Qd1+ 45. Kh2 Nf6 46. Rd2 Qh5 47. Qxh5 Nxh5 48. Rd3 Nf4 49. Re3 Ng6 50. Kg1 Rd7 51. Rf3 f5 52. Re3 Rd8 53. c4 Nf4 54. Nd6 Rxd6 55. Re1 Nd3 56. Ra1 Nf4 57. c5 Rd2 58. c6 Bd6 59. Rb1 Rc2 60. Rb7+ Kf6 61. Rxa7 Rc1+ 62. Kh2 Ne2+ 63. g3 Rg1 64. Rb7 hxg3+ 65. fxg3 Bxg3# 0-1
+
+=================
+ANOTHER ONE
+
+playing Re6
+r5k1/pp3pp1/n3r2p/2bNpQ2/2P1p3/P6P/1P3PBP/R3K3 w Q - 2 19
+sf playing Rd1
+r5k1/pp3pp1/n3r2p/2bNpQ2/2P1p3/P6P/1P3PBP/3RK3 b - - 3 19
+best eval: -2.52 (depth = 1)
+took 0.1s
+best eval: -2.52 (depth = 2)
+took 0.0s
+best eval: -2.52 (depth = 3)
+took 0.4s
+best eval: -3.11 (depth = 4)
+took 1.1s
+playing Rc8
+2r3k1/pp3pp1/n3r2p/2bNpQ2/2P1p3/P6P/1P3PBP/3RK3 w - - 4 20
+sf playing Bxe4
+2r3k1/pp3pp1/n3r2p/2bNpQ2/2P1B3/P6P/1P3P1P/3RK3 b - - 0 20
+best eval: -3.11 (depth = 1)
+took 0.0s
+best eval: -3.11 (depth = 2)
+took 0.0s
+best eval: -3.68 (depth = 3)
+took 1.7s
+playing Rce8
+4r1k1/pp3pp1/n3r2p/2bNpQ2/2P1B3/P6P/1P3P1P/3RK3 w - - 1 21
+sf playing Qh7+
+4r1k1/pp3ppQ/n3r2p/2bNp3/2P1B3/P6P/1P3P1P/3RK3 b - - 2 21
+best eval: -3.68 (depth = 1)
+took 0.0s
+best eval: -999.00 (depth = 2)
+took 0.0s
+playing Kf8
+4rk2/pp3ppQ/n3r2p/2bNp3/2P1B3/P6P/1P3P1P/3RK3 w - - 3 22
+sf playing Qh8#
+4rk1Q/pp3pp1/n3r2p/2bNp3/2P1B3/P6P/1P3P1P/3RK3 b - - 4 22
+Game over: 1-0
+[Event "Engine game"]
+[Date "Mon Jun 28 19:34:51 2021"]
+[White "stockfish 1650"]
+[Black "engine"]
+[Result "1-0"]
+
+1. d4 d5 2. c4 e6 3. Nc3 c6 4. e4 dxe4 5. Nh3 Nf6 6. a3 e5 7. d5 Bxh3 8. gxh3 Bc5 9. Rg1 O-O 10. Bg5 Na6 11. Rg2 Qd6 12. Bh4 cxd5 13. Bxf6 Qxf6 14. Nxd5 Qf3 15. Qd2 Rfe8 16. Qg5 Qxg2 17. Bxg2 h6 18. Qf5 Re6 19. Rd1 Rc8 20. Bxe4 Rce8 21. Qh7+ Kf8 22. Qh8# 1-0
+---
+
+===============
+STALEMATE UNDETECTED!!!!!!
+
+8/1p4k1/p4b2/5p2/3q4/8/6K1/8 b - - 1 39
+best eval: 18.75 (depth = 1)
+best eval: 18.75 (depth = 2)
+best eval: 19.16 (depth = 3)
+best eval: 18.98 (depth = 4)
+playing Be5
+8/1p4k1/p7/4bp2/3q4/8/6K1/8 w - - 2 40
+sf playing Kh1
+8/1p4k1/p7/4bp2/3q4/8/8/7K b - - 3 40
+best eval: 19.24 (depth = 1)
+best eval: 19.34 (depth = 2)
+best eval: 19.54 (depth = 3)
+best eval: 19.14 (depth = 4)
+playing Qd5+
+8/1p4k1/p7/3qbp2/8/8/8/7K w - - 4 41
+sf playing Kg1
+8/1p4k1/p7/3qbp2/8/8/8/6K1 b - - 5 41
+best eval: 19.14 (depth = 1)
+best eval: 19.14 (depth = 2)
+best eval: 19.34 (depth = 3)
+best eval: 19.14 (depth = 4)
+playing Qf3
+8/1p4k1/p7/4bp2/8/5q2/8/6K1 w - - 6 42
+Game over: 1/2-1/2
+[Event "Engine game"]
+[Date "Tue Jun 29 15:34:29 2021"]
+[White "stockfish 1450"]
+[Black "engine"]
+[Result "1/2-1/2"]
+
+1. Nf3 c5 2. d3 d5 3. d4 cxd4 4. h3 e5 5. c3 Qb6 6. e3 dxe3 7. fxe3 Bf5 8. g4 Bxb1 9. Nxe5 Nd7 10. Qxd5 Nxe5 11. Qxe5+ Be7 12. Rxb1 Rd8 13. Bg2 Nf6 14. Bd2 Rxd2 15. Kxd2 h6 16. Kc2 Nd7 17. Qxg7 Bf6 18. Qxh6 Rxh6 19. Rbe1 Be5 20. Kc1 a6 21. h4 Rg6 22. Be4 Rxg4 23. Bd3 Nc5 24. Kc2 Nxd3 25. Kxd3 Qxb2 26. Rc1 Qxa2 27. Rcg1 Qd5+ 28. Ke2 Rxg1 29. Rxg1 Bxc3 30. Rg5 f5 31. Kf2 Bf6 32. Rg6 Bxh4+ 33. Kg1 Qe5 34. Kf1 Qxe3 35. Kg2 Qd4 36. Kh3 Bf6 37. Rg8+ Kf7 38. Rg7+ Kxg7 39. Kg2 Be5 40. Kh1 Qd5+ 41. Kg1 Qf3 1/2-1/2
+
+
