@@ -11,10 +11,7 @@ class Player(object):
 
     def __init__(self):
         self.resigned = False
-
-    @property
-    def name(self):
-        return str(self.__class__)
+        self.name = str(self.__class__)
 
     def start_game(self, board, color, move_time):
         self.resigned = False
@@ -37,10 +34,7 @@ class StockfishPlayer(Player):
         if elo:
             self.sf.configure({'UCI_LimitStrength':True})
             self.sf.configure({'UCI_Elo':elo})
-
-    @property
-    def name(self):
-        return 'Stockfish 13' + (' [%d]' % self.elo if self.elo else '')
+        self.name = 'Stockfish 13' + (' [%d]' % self.elo if self.elo else '')
 
     def move(self):
         play_result = self.sf.play(board = self.board, limit = chess.engine.Limit(time=self.move_time))
@@ -50,9 +44,7 @@ class StockfishPlayer(Player):
 
 class HumanPlayer(Player):
 
-    @property
-    def name(self):
-        return 'Human'
+    name = 'Human'
 
     def move(self):
         while True:
@@ -71,10 +63,7 @@ class EnginePlayer(Player):
     def __init__(self, engine: Engine, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.engine = engine
-
-    @property
-    def name(self):
-        return str(self.engine)
+        self.name = str(self.engine)
 
     def start_game(self, *args, **kwargs):
         super().start_game(*args, **kwargs)
