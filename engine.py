@@ -5,60 +5,9 @@ import gc
 import random
 import time
 
+from collections import namedtuple
 from IPython.display import SVG, display
 from stockfish import Stockfish
-
-# TODO:
-    # - Next: implement alphabeta transposition - see wikipedia. Note that I have to combine quiescence and negamax - should be doable
-        # - See: https://stackoverflow.com/questions/29990116/alpha-beta-prunning-with-transposition-table-iterative-deepening
-    # - Then: improve evaluation king safety, pieces attacked (should be easy!), defended pieces, double/passed pawns, etc.
-# NOTE:
-    # - currently pypy3 runs this comfortably with depth 4 - now with 5
-
-# SOME RESULTS: playing with depth 3 against stockfish:
-    # against 1350: 6-0 [0 draw]
-    # against 1500: 2-3 [1 draw]
-    # against 1650: 0-4 [2 draw]
-    # against 1800: 0-4 [1 draw]
-    # against 2000: 0-4 [0 draw]
-# NOTE: Some draws were unseen repetitions in winning positions!
-
-# After small improvements such as repetition check and promotions in QS (but before PST):
-    # against 1350: 5-0 [0 draw]
-    # against 1500: 3-2 [0 draw]
-    # against 1650: 1-3 [1 draw]
-    # against 1800: 1-4 [0 draw]
-    # against 2000: 0-5 [0 draw]
-
-# After king and pawn PST, and some performance improvements:
-    # against 1350: 5-0 [0 draw]
-    # against 1500: 3-1 [1 draw]
-    # against 1650: 0-5 [0 draw]
-    # against 1800: 1-4 [0 draw]
-    # against 2000: 1-4 [0 draw]
-# A second run:
-    # against 1350: 5-0 [0 draw]
-    # against 1500: 5-0 [0 draw]
-    # against 1650: 2-3 [0 draw]
-    # against 1800: 0-5 [0 draw]
-    # against 2000: 0-5 [0 draw]
-# NOTE: I should just play 20 games against 1500 to assess strength - will be a bit quicker and more reliable
-    # against 1500: 12-7 [1 draw]
-    # against 1500: 10-8 [2 draw] (with +2 depth during endgame - i think, not sure it worked)
-    # against 1500: 15-4 [1 draw] endgame: 4-1 [0 draw] (definitely with +2 endgame depth this time)
-# Depth 4, endgame depth 6
-    # against 1500: 17-3 [0 draw]
-        # - according to some sources this puts us at +300 elo above stockfish 1500. 
-        # - endgame depth wasn't a factor here since there were only 2 endgames, and they ended 1-1.
-        # - engine ran rather slow
-# Iterative deepening, 3.5 cutoff (4-6 deep most moves):
-    # against 1500: 10-0 [1 draw]
-    # - draw was undetected repetition because of tt
-
-# After double pawns eval and book openings, iterative 2.5 cutoff (depth 4-6, 6+ lategame):
-    # against 1800: 4-0 [0 draw]
-
-from collections import namedtuple
 
 Entry = namedtuple('Entry', ['val', 'type', 'depth'])
 # Entry types
@@ -87,7 +36,6 @@ class Engine(object):
 
     PIECE_VALUES = [-1, 100, 320, 330, 500, 900, 20000] # none, pawn, knight, bishop, rook, queen, king - list for efficiency
     MATE_SCORE = 99900
-    RESIGN_AT = -(PIECE_VALUES[chess.QUEEN] + PIECE_VALUES[chess.KNIGHT])
 
     # rank just before promotion, for either side - for checking for promotion moves
     PROMOTION_BORDER = [chess.BB_RANK_2, chess.BB_RANK_7]
@@ -179,6 +127,7 @@ class Engine(object):
     def __init__(self):
         self._init_sq_tables()
         self._init_game_state()
+        self.book = self.BOOK
         if self.Z_HASHING:
             self._get_hash = self._get_hash_z
             self._make_move = self._make_move_z
@@ -207,11 +156,11 @@ class Engine(object):
             combined = [b_table, w_table]
             setattr(self, table_name, combined)
 
-    def _init_game_state(self):
-        self.board = chess.Board()
+    def _init_game_state(self, board = None):
+        self.board = board if board else chess.Board()
         self.endgame = False
         self.resigned = False
-        self.book = self.BOOK
+        self.move_time_limit = self.MOVE_TIME_LIMIT
         self._hash = None
         self.move_evals = []
         self.evals = {}
@@ -265,6 +214,9 @@ class Engine(object):
         self.color = self_color
         while not self._is_game_over():
             if self.board.turn == self_color:
+                # NOTE: gotta call get_hash here because it does not reset after opponent move!! 
+                # OR... Maybe in search_root
+                self._get_hash()
                 self._play_move()
                 #time.sleep(.5) # let the cpu relax for a moment
             else:
@@ -307,7 +259,6 @@ class Engine(object):
         print('Game over: %s' % self._game_result())
         print(self.game_pgn(white = 'human' if player_color else 'engine', black = 'engine' if player_color else 'human'))
 
-    # TODO: create a new Game class for this stuff - also for the white not over that is duplicated above
     def _is_game_over(self):
         if self.board.is_game_over():
             return True
@@ -316,14 +267,17 @@ class Engine(object):
         # consider resignation:
         #  - we resign if both eval and material are too low, or
         #  - if eval has been low for several moves
+        # TODO: maybe also in the endgame if we are down a rook or so or more.
+        #       also if eval is low (but higher than threshold) for more moves.
         mat_diff = self._material_count(self.color) - self._material_count(not self.color)
-        mat_cutoff = self.RESIGN_AT * .75
+        mat_cutoff = self.PIECE_VALUES[chess.QUEEN]
         if mat_diff < mat_cutoff:
             num_evals = 2
         else:
             num_evals = 3
+        resign_cutoff = self.PIECE_VALUES[chess.QUEEN] + 2 * self.PIECE_VALUES[chess.PAWN]
         last_evals = [v for _, v in self.move_evals[-num_evals:]]
-        if all(v <= self.RESIGN_AT for v in last_evals):
+        if all(v <= resign_cutoff for v in last_evals):
             self.resigned = True
             return True
         return False
@@ -355,13 +309,24 @@ class Engine(object):
             except ValueError:
                 print('illegal move: %s' % move)
 
+    def start_game(self, board, color, move_time):
+        self._init_game_state(board)
+        self.move_time_limit = move_time
+        self.color = color
+
+    def play_move(self):
+        self._hash = None
+        move = self._select_move()
+        #print('playing %s' % self.board.san(move))
+        return move
+
     def _play_move(self):
         move = self._select_move()
         print('playing %s' % self.board.san(move))
         self._make_move(move)
 
     def _is_move_time_over(self):
-        return time.time() - self._move_start_time > self.MOVE_TIME_LIMIT
+        return time.time() - self._move_start_time > self.move_time_limit
 
     def _select_move(self):
         self._move_start_time = time.time()
@@ -392,11 +357,11 @@ class Engine(object):
             try:
                 with chess.polyglot.open_reader(book_file) as reader:
                     move = reader.weighted_choice(self.board).move
-                    print('selected book move: %s' % self.board.san(move))
+                    #print('selected book move: %s' % self.board.san(move))
                     return move
             except IndexError:
                 continue
-        print('out of book!')
+        #print('out of book!')
         self.book = False
 
     def _iterative_deepening(self):
@@ -414,7 +379,8 @@ class Engine(object):
         if not self.endgame:
             self.endgame = all(self._material_count(color) <= 1300 for color in chess.COLORS)
             if self.endgame:
-                print('--- ENDGAME HAS BEGUN ---')
+                pass
+                #print('--- ENDGAME HAS BEGUN ---')
                 # TODO: should use tapered eval for a gradual transition into endgame ... right now we may have
                 # 14 vs 5 material but does not count as endgame, and king stays put etc...
                 # NOTE: also may use a less strict endgame definition, stockfish e.g. calls endgame much earlier
@@ -570,7 +536,8 @@ class Engine(object):
             for move, val in move_values.items():
                 print('%s: %.2f' % (self.board.san(move), val/100))
         else:
-            print('best eval: %.2f (depth = %s)' % (move_values[best_move]/100, depth))
+            pass
+            #print('best eval: %.2f (depth = %s)' % (move_values[best_move]/100, depth))
         #print('took %.1fs' % (time.time()-t0))
 
         return best_move, move_values[best_move]
@@ -873,6 +840,16 @@ class Engine(object):
         return check
 
     def _bb_count(self, x):
+        # NOTE:
+        # NOTE:
+        # NOTE:
+        #   In analyzer I got pretty weird results where this and another bitcount method
+        #   were both *slower* than bin.count('1'), when run in an actual program, despite much
+        #   better %timeit results.... so better actually test whether this works as fast as I'd like,
+        #   or whether I should just go back to bin.count
+        # NOTE:
+        # NOTE:
+        # NOTE:
         # really fast popcount algorithm, from here: https://stackoverflow.com/a/51388846
         x = (x & 0x5555555555555555) + ((x >> 1) & 0x5555555555555555)
         x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333)
