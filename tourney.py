@@ -72,6 +72,7 @@ def run():
         else:
             draws.append(opp_rating)
         color = not color
+    print('engine average move depth = %.1f' % e.average_depth())
 
 def adjust_opponent_rating(opp_rating):
     adjustment = 75
