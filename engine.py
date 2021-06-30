@@ -269,12 +269,12 @@ class Engine(object):
         # TODO: maybe also in the endgame if we are down a rook or so or more.
         #       also if eval is low (but higher than threshold) for more moves.
         mat_diff = self._material_count(self.color) - self._material_count(not self.color)
-        mat_cutoff = self.PIECE_VALUES[chess.QUEEN]
+        mat_cutoff = -self.PIECE_VALUES[chess.QUEEN]
         if mat_diff < mat_cutoff:
             num_evals = 2
         else:
             num_evals = 3
-        resign_cutoff = self.PIECE_VALUES[chess.QUEEN] + 2 * self.PIECE_VALUES[chess.PAWN]
+        resign_cutoff = -(self.PIECE_VALUES[chess.QUEEN] + 2 * self.PIECE_VALUES[chess.PAWN])
         last_evals = [v for _, v in self.move_evals[-num_evals:]]
         if all(v <= resign_cutoff for v in last_evals):
             self.resigned = True
