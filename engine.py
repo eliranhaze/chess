@@ -8,11 +8,24 @@ import time
 from collections import namedtuple
 from IPython.display import SVG, display
 
+#from evaluate import Evaluator
+
 Entry = namedtuple('Entry', ['val', 'type', 'depth'])
 # Entry types
 EXACT = 0
 LOWER = 1
 UPPER = 2
+
+
+# NOTE: JUNE 30, 2021
+# Things to try next:
+# - QS Checks
+# - SEE pruning/ordering
+# - History/LMR
+# - One reply extension
+# - Better PST - maybe for all pieces - test self play
+# - More pawn structure evaluation
+# - More piece evaluation, bishop pair, etc.
 
 class Engine(object):
 
@@ -128,6 +141,8 @@ class Engine(object):
         self._init_game_state()
         self.book = self.BOOK
         self.depth_record = []
+        self.time_record = []
+        #self.evaluator = Evaluator()
         if self.Z_HASHING:
             self._get_hash = self._get_hash_z
             self._make_move = self._make_move_z
@@ -203,7 +218,14 @@ class Engine(object):
         self.board = chess.Board(fen)
 
     def average_depth(self):
+        # TODO:
+        # need to add average move time as well to make sure not too much time is spent exceeding limit...
+        # to make sure changes are not winning just because of extra QS.
+        # perhaps have one structure for history of evals, depth, and time per move
         return sum(self.depth_record) / len(self.depth_record)
+
+    def average_time(self):
+        return sum(self.time_record) / len(self.time_record)
 
     def play_stockfish(self, level, self_color = True, move_time = .1, stockfish_path = '/usr/local/bin/stockfish'):
         # TODO: check if ponder is on for sf, and turn off if so
@@ -344,6 +366,7 @@ class Engine(object):
         else:
             move, best_eval  = self._search_root(depth = self.ENDGAME_DEPTH if self.endgame else self.DEPTH)
         self.move_evals.append((move, best_eval))
+        self.time_record.append(time.time() - self._move_start_time)
         return move
 
     def _select_book_move(self):
