@@ -263,8 +263,9 @@ class Engine(object):
         print(self.game_pgn(white = 'human' if player_color else 'engine', black = 'engine' if player_color else 'human'))
 
     def _is_game_over(self):
-        if self.board.is_game_over():
-            return True
+        return self.board.is_game_over() or self.should_resign()
+
+    def should_resign(self):
         if len(self.move_evals) < 5:
             return False
         # consider resignation:

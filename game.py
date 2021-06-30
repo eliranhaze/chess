@@ -3,6 +3,7 @@ import chess.engine
 import chess.pgn
 import random
 import stockfish
+import time
 
 from engine import Engine
 
@@ -16,6 +17,7 @@ class Player(object):
         return str(self.__class__)
 
     def start_game(self, board, color, move_time):
+        self.resigned = False
         self.board = board
         self.color = color
         self.move_time = move_time
@@ -79,6 +81,9 @@ class EnginePlayer(Player):
         self.engine.start_game(self.board, self.color, self.move_time)
 
     def move(self):
+        if self.engine.should_resign():
+            self.resigned = True
+            return None
         return self.engine.play_move() # should only return move - not change the board!
 
 class Game(object):
@@ -111,6 +116,7 @@ class Game(object):
                 break
             #print('%s played %s' % (self.color_to_move, self.board.san(move)))
             self.board.push(move)
+        print(self.pgn())
         return self.winner()
 
     def is_over(self):
@@ -131,15 +137,24 @@ class Game(object):
             return self.black
         # draw
         return None
-    
+
+    def result(self):
+        if self.white.resigned:
+            return '0-1 (white resigns)'
+        if self.black.resigned:
+            return '1-0 (black resigns)'
+        return self.board.result()
+
     def pgn(self):
         game = chess.pgn.Game()
-        game.headers = {
-                'Date': time.ctime(),
-                'White': self.white.name,
-                'Black': self.black.name,
-                'Result': self.result(),
-            }
+        game.headers['Event'] = 'Engine game'
+        game.headers['Date'] = time.ctime()
+        game.headers['White'] = self.white.name
+        game.headers['Black'] = self.black.name
+        game.headers['Result'] = self.result()
+        game.headers.pop('Site')
+        game.headers.pop('Round')
+        game.headers.pop('Event')
         node = game
         for m in self.board.move_stack:
             node = node.add_variation(m)
