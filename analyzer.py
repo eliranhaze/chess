@@ -4,6 +4,13 @@ import codecs
 import pickle
 import sys
 
+# NOTE: I might want to try and do multiple logistic regression with something like the following features:
+#       - king sq, 0/1 for pawn at each surrounding square, num knights, num bishops, num rooks, num queens,
+#         num pawns (maybe for opponent as well), num king defenders, num king attackers, num opp king defenders,
+#         num opp king attackers.
+#       - and the outcome.
+#       (this wouldn't capture pawn structure though)
+
 b = chess.Board()
 # masks for 2 square layers surrounding king
 KING_ATT = []
@@ -108,20 +115,18 @@ def process(pgn_filename):
         game = chess.pgn.read_game(pgn)
     return wpk, bpk
 
-def combine_pkls(pkl_name1, pkl_name2, outname):
-    d1 = pickle.load(open(pkl_name1, 'rb'))
-    d2 = pickle.load(open(pkl_name2, 'rb'))
-    lens = (len(d1), len(d2))
-    for k, v in d2.items():
-        if k in d1:
-            cv = d1[k]
-            d1[k] = (v[0]+cv[0],v[1]+cv[1])
-        else:
-            d1[k] = v
-    print('combined %d and %d into %d items' % (lens[0], lens[1], len(d1)))
-    new_filename = outname
-    pickle.dump(d1, open(new_filename, 'wb'))
-    print('created file: %s' % new_filename)
+def combine_pkls(pkl_names, outname):
+    combined_data = {}
+    for pkl_name in pkl_names:
+        print('loading', pkl_name)
+        data = pickle.load(open(pkl_name, 'rb'))
+        print('processing %d data items' % len(data))
+        for k, v in data.items():
+            combined_counts = combined_data.get(k, (0,0))
+            combined_data[k] = (v[0] + combined_counts[0], v[1] + combined_counts[1])
+    print('combined %d data items' % len(combined_data))
+    pickle.dump(combined_data, open(outname, 'wb'))
+    print('created file: %s' % outname)
 
 def report(pkl_name, **kw):
     print('loading pkl...')
@@ -159,7 +164,7 @@ def main():
      Or: pypy3 analyzer.py report [pkl] [num_pawns] to run report and print top/bottom positions
     """
     if sys.argv[1] == 'combine':
-        combine_pkls(sys.argv[2], sys.argv[3], sys.argv[4])
+        combine_pkls(sys.argv[2:-1], sys.argv[-1])
         return
     elif sys.argv[1] == 'report':
         report(sys.argv[2], num_pawns = int(sys.argv[3]) if len(sys.argv) > 3 else None)
