@@ -127,6 +127,7 @@ class Engine(object):
         self._init_sq_tables()
         self._init_game_state()
         self.book = self.BOOK
+        self.depth_record = []
         if self.Z_HASHING:
             self._get_hash = self._get_hash_z
             self._make_move = self._make_move_z
@@ -200,6 +201,9 @@ class Engine(object):
     def set_fen(self, fen):
         self._init_game_state()
         self.board = chess.Board(fen)
+
+    def average_depth(self):
+        return sum(self.depth_record) / len(self.depth_record)
 
     def play_stockfish(self, level, self_color = True, move_time = .1, stockfish_path = '/usr/local/bin/stockfish'):
         # TODO: check if ponder is on for sf, and turn off if so
@@ -372,6 +376,7 @@ class Engine(object):
             best_move, move_eval = self._search_root(depth = depth)
             if abs(move_eval) == self.MATE_SCORE or self._is_move_time_over():
                 break
+        self.depth_record.append(depth)
         return best_move, move_eval
 
     def _check_endgame(self):
@@ -400,7 +405,8 @@ class Engine(object):
     def _gen_quiesce_moves(self): 
         # this is much faster in deep QS cases, but a bit slower in other cases - overall better, also saves memory
         for move in self._gen_moves():
-            if self.board.is_capture(move) or move.promotion:
+            # TODO: should test QS with check vs without - got mated a few times by missing potential checks
+            if self.board.is_capture(move) or move.promotion:# or self._is_move_check(move):
                 yield move
 
     def _quiesce(self, alpha, beta): # TODO: also figure out how to time-limit
