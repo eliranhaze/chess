@@ -7,7 +7,6 @@ import time
 
 from collections import namedtuple
 from IPython.display import SVG, display
-from stockfish import Stockfish
 
 Entry = namedtuple('Entry', ['val', 'type', 'depth'])
 # Entry types
