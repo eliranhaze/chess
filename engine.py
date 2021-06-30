@@ -497,6 +497,8 @@ class Engine(object):
 
         t0 = time.time()
         self.depth = depth
+
+        board_hash = self._get_hash()
         best_move = None
         best_value = -float('inf') # TODO: change to ints for consistency
         alpha = -float('inf')
@@ -508,8 +510,8 @@ class Engine(object):
         for move in self._gen_moves():
             t1 = time.time()
             self.depth = depth
-            if self.PRINT:
-                print('evaluating move %s' % self.board.san(move))
+            #if self.PRINT:
+            #    print('evaluating move %s' % self.board.san(move))
             piece_from, piece_to = self._make_move(move)
             value =  -self._negamax(depth - 1, -beta, -alpha)
             self._unmake_move(move, piece_from, piece_to)
@@ -517,10 +519,11 @@ class Engine(object):
             if value > best_value:
                 best_value = value
                 best_move = move
+                self.top_moves[board_hash] = best_move
             alpha = max(alpha, value)
 
-            if self.PRINT:
-                print('... %d nodes evaluated (%.4fs)' % (self.nodes - prev_nodes, time.time()-t1))
+            #if self.PRINT:
+            #    print('... %d nodes evaluated (%.4fs)' % (self.nodes - prev_nodes, time.time()-t1))
             prev_nodes = self.nodes
 
             # consider terminating due to time
@@ -605,7 +608,6 @@ class Engine(object):
                 if e + self._max_opponent_piece_value() + max_pos_gain < alpha:
                     gen_moves = self._gen_checks
 
-        top_move = None
         for move in gen_moves():
             self.depth = depth
             piece_from, piece_to = self._make_move(move)
@@ -614,8 +616,7 @@ class Engine(object):
             if value > best_value:
                 best_value = value
                 if value > alpha:
-                    top_move = move
-                    self.top_moves[board_hash] = top_move
+                    self.top_moves[board_hash] = move
                     alpha = value
                     if alpha >= beta:
                         # fail low: position is too good - opponent has an already searched way to avoid it.
