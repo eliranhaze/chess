@@ -20,6 +20,8 @@ UPPER = 2
 # NOTE: JUNE 30, 2021
 # Things to try next:
 # - QS Checks
+# - That Cerebral or whatever opening book
+# - Reasonalbe endgame TB
 # - SEE pruning/ordering
 # - History/LMR
 # - One reply extension
@@ -140,6 +142,7 @@ class Engine(object):
         self._init_sq_tables()
         self._init_game_state()
         self.book = self.BOOK
+        self.move_time_limit = self.MOVE_TIME_LIMIT
         self.depth_record = []
         self.time_record = []
         #self.evaluator = Evaluator()
@@ -175,7 +178,6 @@ class Engine(object):
         self.board = board if board else chess.Board()
         self.endgame = False
         self.resigned = False
-        self.move_time_limit = self.MOVE_TIME_LIMIT
         self._hash = None
         self.move_evals = []
         self.evals = {}
@@ -463,6 +465,8 @@ class Engine(object):
         # alpha represents current player's best so far, and beta the opponent's best so far (from current player POV)
         stand_pat = self._evaluate_board()
         self.nodes += 1
+        # TODO: test with a margin here instead, e.g., maybe cutoff if we're at 198 and beta is 200... could 
+        # speed things up without real loss, and the speed might be worth it
         if stand_pat >= beta:
             # beta cutoff: the evaluated position is 'too good', because the opponent already has a way to avoid this
             # with a position for which there is this beta score, so there's no point in searching further down this road.
@@ -489,6 +493,7 @@ class Engine(object):
             # move delta pruning
             if not move.promotion:
                 capture_type = self.board.piece_type_at(move.to_square)
+                # FIXME BUG!!!!!!!! THIS SHOULD BE 200 NOT 2!!!! MAYBE JUST CHANGE TO 2 PAWNS
                 if capture_type and (self.PIECE_VALUES[capture_type] + stand_pat + 2 < alpha):
                     # this move can't raise alpha
                     continue
@@ -663,6 +668,7 @@ class Engine(object):
             # remember exact value higher than alpha but still lower than beta
             entry_type = EXACT
         self.tp[board_hash] = Entry(value, entry_type, depth)
+
         return alpha
 
     def _table_maintenance(self):
