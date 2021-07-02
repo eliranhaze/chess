@@ -50,6 +50,7 @@ class Engine(object):
 
     PIECE_VALUES = [-1, 100, 320, 330, 500, 900, 20000] # none, pawn, knight, bishop, rook, queen, king - list for efficiency
     MATE_SCORE = 99900
+    INF = MATE_SCORE + 1
 
     # rank just before promotion, for either side - for checking for promotion moves
     PROMOTION_BORDER = [chess.BB_RANK_2, chess.BB_RANK_7]
@@ -416,6 +417,37 @@ class Engine(object):
                 # NOTE: also may use a less strict endgame definition, stockfish e.g. calls endgame much earlier
                 # in this game: https://lichess.org/6bwh9VjF - in move 32, whereas I only called it in move 58
 
+    def _pseudo_sort(self, gen, key):
+        # sorts a generator by yielding the max value each time
+        # if fully travesed this is slower than a simple sort, but the idea
+        # is that we're not gonna iterate over all of the moves because of pruning
+        # so this is in fact faster
+
+        yielded = set()
+        max_k = -self.INF
+        max_m = None
+        moves = {}
+        for m in gen:
+            k = -key(m)
+            moves[m] = k
+            if k > max_k:
+                max_m = m
+                max_k = k
+        yield max_m
+        yielded.add(max_m)
+        moves.pop(max_m)
+
+        while moves:
+            max_k = -self.INF
+            max_m = None
+            for m,k in moves.items():
+                if k > max_k and m not in yielded:
+                    max_m = m
+                    max_k = k
+            yield max_m
+            yielded.add(max_m)
+            moves.pop(max_m)
+
     def _gen_moves(self):
         self.move_hits += 1
         board_hash = self._get_hash()
@@ -424,7 +456,7 @@ class Engine(object):
         if top_move:
             self.top_hits += 1
             yield top_move
-        for move in sorted(self.board.generate_legal_moves(), key = self._evaluate_move):
+        for move in self._pseudo_sort(self.board.generate_legal_moves(), key = self._evaluate_move):
             if move != top_move: # don't re-search top move
                 yield move
 
@@ -489,7 +521,7 @@ class Engine(object):
         if alpha < stand_pat:
             alpha = stand_pat
 
-        score = -float('inf')
+        score = -self.INF
         for move in self._gen_quiesce_moves():
 
             # move delta pruning
@@ -515,7 +547,7 @@ class Engine(object):
 
         # TODO: FIXME: this condition should be removed - this is probably the same thing as in 
         #              negamax that i fixed - gotta store alpha/beta not score if not exact
-        if score > -float('inf'):
+        if score > -self.INF:
             if score <= orig_alpha:
                 entry_type = UPPER
             elif score >= beta:
@@ -536,9 +568,9 @@ class Engine(object):
 
         board_hash = self._get_hash()
         best_move = None
-        best_value = -float('inf') # TODO: change to ints for consistency
-        alpha = -float('inf')
-        beta = float('inf')
+        best_value = -self.INF
+        alpha = -self.INF
+        beta = self.INF
         move_values = {}
 
         prev_nodes = self.nodes
@@ -556,6 +588,7 @@ class Engine(object):
                 best_value = value
                 best_move = move
                 self.top_moves[board_hash] = best_move
+            # NOTE: max might run slightly slower than a simple if test (as checked in ipy) - check this
             alpha = max(alpha, value)
 
             #if self.PRINT:
@@ -622,11 +655,11 @@ class Engine(object):
         if depth == 0 or self.board.is_game_over():
             return self._quiesce(alpha, beta)
 
-        value = -float('inf')
-        best_value = -float('inf')
+        value = -self.INF
+        best_value = -self.INF
 
         # null move pruning
-        if can_null and depth > 2 and beta < float('inf') and not self.endgame and not self._is_check():
+        if can_null and depth > 2 and beta < self.INF and not self.endgame and not self._is_check():
             R = 2 if depth < 6 else 3
             self._make_move(chess.Move.null())
             value = -self._negamax(depth - 1 - R, -beta, -beta + 1, False)
