@@ -424,7 +424,7 @@ class Engine(object):
         if top_move:
             self.top_hits += 1
             yield top_move
-        for move in sorted(self.board.legal_moves, key = self._evaluate_move):
+        for move in sorted(self.board.generate_legal_moves(), key = self._evaluate_move):
             if move != top_move: # don't re-search top move
                 yield move
 
@@ -479,11 +479,13 @@ class Engine(object):
         delta = self._max_opponent_piece_value()
         # check if any move might be promoting
         if self.board.pawns & self.board.occupied_co[self.board.turn] & self.PROMOTION_BORDER[self.board.turn]:
-            delta *= 2
+            # TODO: should also check if not piece is block (otherwise it's not really a potential promotion)
+            # also test values other than 2 here (maybe a bit lower as in CPW)
+            delta *= 2 # TODO: this should be += queen value... because max opp could be e.g. knight
         if stand_pat + delta < alpha: # promotions might have to be considered as well - we might promote and capture queen
             # can't raise alpha - saves quite some time
             return alpha
-
+        
         if alpha < stand_pat:
             alpha = stand_pat
 
@@ -591,7 +593,7 @@ class Engine(object):
             self.top_hits += 1
             yield top_move
         # only checks and promotions - no move ordering as there should be only a few moves
-        for move in self.board.legal_moves:
+        for move in self.board.generate_legal_moves():
             if move != top_move or move.promotion or self._is_move_check(move):
                 yield move
 
