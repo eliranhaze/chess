@@ -24,7 +24,7 @@ print('running %d games: %s vs %s [%.2fs tpm]' % (NUM_GAMES, ep1, ep2, TPM))
 
 gs = GameSeries(ep1, ep2, NUM_GAMES, TPM)
 print(gs.run())
-print('avg move depths: e1 %.1f, e2 %.1f' % (e1.average_depth(), e2.average_depth()))
+print('avg move depths: e1 %.2f, e2 %.2f' % (e1.average_depth(), e2.average_depth()))
 print('avg move times: e1 %.2f, e2 %.2f' % (e1.average_time(), e2.average_time()))
 
 
@@ -35,7 +35,7 @@ print('running %d games: %s vs %s [%.2fs tpm]' % (NUM_GAMES, ENGINE_INSTANCE, SF
 
 gs = GameSeries(ENGINE_INSTANCE, SF, NUM_GAMES, TPM)
 print(gs.run())
-print('avg move depths: %.1f' % ENGINE_INSTANCE.engine.average_depth())
+print('avg move depths: %.2f' % ENGINE_INSTANCE.engine.average_depth())
 print('avg move times: %.2f' % ENGINE_INSTANCE.engine.average_time())
 
 # TODO: handle better
