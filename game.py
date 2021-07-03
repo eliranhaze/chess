@@ -105,7 +105,7 @@ class Game(object):
                 break
             #print('%s played %s' % (self.color_to_move, self.board.san(move)))
             self.board.push(move)
-        print(self.pgn())
+        #print(self.pgn())
         return self.winner()
 
     def is_over(self):
