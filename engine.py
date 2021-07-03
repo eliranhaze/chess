@@ -543,8 +543,8 @@ class Engine(object):
             # move delta pruning
             if not move.promotion:
                 capture_type = self.board.piece_type_at(move.to_square)
-                # FIXME BUG!!!!!!!! THIS SHOULD BE 200 NOT 2!!!! MAYBE JUST CHANGE TO 2 PAWNS
-                if capture_type and (self.PIECE_VALUES[capture_type] + stand_pat + 2 < alpha):
+                # we use a delta of 20 as was found to be best in testing
+                if capture_type and (self.PIECE_VALUES[capture_type] + stand_pat + 20 < alpha):
                     # this move can't raise alpha
                     continue
 
