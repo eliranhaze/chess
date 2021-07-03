@@ -481,7 +481,11 @@ class Engine(object):
         else:
             victim_value = self.PIECE_VALUES[victim]
         attacker = self.board.piece_type_at(move.from_square)
-        return self.PIECE_VALUES[attacker] - victim_value
+        # the following is supposed to be better than a simple subtraction, the idea being
+        # that we sort by most valuable victim first, and by least vaulable attacker second
+        # - it does seem to be a bit faster in tests
+        # see: http://talkchess.com/forum3/viewtopic.php?t=30135#p296386
+        return self.PIECE_VALUES[attacker] - (16 * victim_value)
 
     def _quiesce(self, alpha, beta): # TODO: also figure out how to time-limit
 
