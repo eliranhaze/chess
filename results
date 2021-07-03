@@ -78,3 +78,138 @@ overall score: 23/50
 performance rating: 1577
 
 NOTE: just found a bug that draws were reported as losses - shouldn't have affected results that much, but still.
+
+--
+June 29-30, Google Colab
+engine with king_val vs engine without
+50 games: +18 =8 -24
+75 games: +24 =21 -30
+75 games: +20 =16 -39
+overall 200 games: +62 =45 -93
+elo diff: -54, according to https://www.3dkingdoms.com/chess/elo.htm
+
+--
+June 30
+-- testing king_val
+tourney.py --num_games 50 --rating 1500 --iterative --move_time .4 --sf_path /content/chess/stockfish13 --book
+engine average move depth = 3.9
+results:
+against 1450: 12-4 [0 draw]
+against 1550: 10-9 [0 draw]
+against 1500: 6-9 [0 draw]
+overall score: 28/50
+performance rating: 1546
+~31min
+
+-- without king_val
+tourney.py --num_games 50 --rating 1500 --iterative --move_time .4 --sf_path /content/chess/stockfish13 --book
+results:
+against 1500: 11-8 [1 draw]
+against 1450: 6-9 [0 draw]
+against 1550: 5-10 [0 draw]
+overall score: 22/50
+performance rating: 1471
+(weird... no? probably too few games to be significant!)
+
+-- king_val vs new king_safety (both no book)
+20 games: +18 =2 -0
+
+-- both book
+75 games: +74 =0 -1
+avg move depths: e1 3.6, e2 3.0
+
+-- both book, -50,50 eval range
+50 games: +46 =2 -2
+avg move depths: e1 4.0, e2 3.5
+
+-- -5,5 range: more even, still losing
+25 games: +13 =4 -8
+avg move depths: e1 4.2, e2 3.7
+
+-- after top>=100 fix, -50,50 range
+20 games: +19 =0 -1
+
+idk... something going very wrong with the king safety evaluation... maybe the features aren't right, the engine is trying to optimize the wrong things, etc..
+- should probably focus on more efficient search for now and continue with the simple evaluation
+
+=======
+--
+June 30
+-- testing qs vs check-extended qs
+50 games (0.25 tpm): +10 =14 -26
+avg move depths: e1 4.3, e2 4.2
+-
+50 games (0.25 tpm): +11 =13 -26
+avg move depths: e1 4.3, e2 4.2
+avg move times: e1 0.40, e2 0.38 (so not searching more as i had worried)
+-
+100 games (0.25): +15 =24 -61
+avg move depths: e1 4.1, e2 4.0
+avg move times: e1 0.38, e2 0.39
+------------------------
+overall: +36 =51 -113 -> +141 elo for check-extended qs version
+------------------------
+
+##################################################################################################################
+# NOTE: can calculate significance with: https://www.surveymonkey.com/mp/ab-testing-significance-calculator/     #
+#	just use 50% for the A test as the null hypothesis                                                       #
+# NOTE: elo diff can be calculated with: https://www.3dkingdoms.com/chess/elo.htm				 #
+##################################################################################################################
+
+-- testing normal qs vs stockfish 1500
+100 games [0.25]: +53 =0 -47
+avg move depths: 3.7
+avg move times: 0.34
+--> +21 elo
+
+-- testing check-extended qs vs stockfish 1500
+100 games [0.25]: +55 =2 -43
+avg move depths: 3.8
+avg move times: 0.35
+--> +36 elo
+
+VERDICT: not decisive --- needs at least 300 more games each. Also maybe fix/test the 2->200 bug in QS first.
+
+--
+July 1
+
+-- normal qs vs stockfish 1500 (again)
+100 games [0.2]: +39 =4 -57
+avg move depths: 3.6
+avg move times: 0.29
+
+-- check-qs vs stockfish 1500
+100 games [0.2]: +45 =0 -55
+avg move depths: 3.4
+avg move times: 0.29
+
+VERDICT: I conclude that check-qs is the better version! -- will commit that one.
+
+-- delta pruning margin 2 vs margin 200 (bug fix):
+265 games: something like +170 =15 -80 (lost exact results)
+ - pretty weird... bug fix made it worse - maybe  the reason is that 200 is too large a margin, since with my evaluation you can't really gain a 200 positional score. maybe a smaller margin larger than 2 would work, maybe 50 or so.
+
+-- margin 2 vs 50:
++136 =18 -36
+
+-- margin 2 vs 20:
++35 =6 -59
+avg move depths: e1 3.8, e2 3.8
+avg move times: e1 0.33, e2 0.31
+
+-- margin 2 vs 40:
++57 =8 -35
+avg move depths: e1 4.0, e2 4.0
+avg move times: e1 0.29, e2 0.31
+
+i don't quite get this... but ok
+
+-- 
+July 2
+
+-- mvv qs sort vs original qs sort
+100 games [0.2]:
++67 =8 -25
+avg move depths: e1 4.59, e2 4.14
+avg move times: e1 0.32, e2 0.32
+--> +235 elo
