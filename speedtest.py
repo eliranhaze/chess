@@ -28,6 +28,7 @@ def test(fen, play = 0):
     print('evaluations fetched:', e.tt)
 
 # Might want to add some more from here: https://www.chessprogramming.org/Test-Positions
+# Also: https://www.chessprogramming.org/Strategic_Test_Suite
 
 # start position
 test(chess.Board().fen())
