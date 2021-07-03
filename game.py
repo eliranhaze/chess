@@ -151,7 +151,7 @@ class Game(object):
 
 class GameSeries(object):
 
-    PRINT_EVERY = 5
+    PRINT_EVERY = 10
 
     def __init__(self, p1, p2, rounds, move_time):
         self.p1 = p1

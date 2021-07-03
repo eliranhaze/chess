@@ -213,3 +213,40 @@ July 2
 avg move depths: e1 4.59, e2 4.14
 avg move times: e1 0.32, e2 0.32
 --> +235 elo
+
+--
+July 3
+-- mvv * 16 vs mvv
+100 games [0.2]:
++43 =11 -46
+avg move depths: e1 4.45, e2 4.44
+avg move times: e1 0.30, e2 0.28
+
+200 games [0.2]:
++107 =11 -82
+avg move depths: e1 4.58, e2 4.52
+avg move times: e1 0.29, e2 0.30
+--- looks better, committing change
+
+-- mvv sort for captures in main search vs eval sort
+200 games [0.2]:
++113 =32 -55
+avg move depths: e1 4.61, e2 4.60
+avg move times: e1 0.28, e2 0.29
+(0.99 significant)
+--> +104 elo
+
+-- mvv sort for captures in main search vs stockfish 1500
+200 games [0.2]: +145 =2 -53
+avg move depths: 4.40
+avg move times: 0.27
+--> +173 elo
+
+-- eval sort vs stockfish 1500
+200 games [0.2]: +143 =8 -49
+avg move depths: 4.40
+avg move times: 0.28
+--> +177 elo
+
+--- strangely about the same, but note that avg move time is higher, which means that new version
+    can search faster. COMMITING

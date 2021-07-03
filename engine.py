@@ -455,9 +455,24 @@ class Engine(object):
         if top_move:
             self.top_hits += 1
             yield top_move
-        for move in sorted(self.board.legal_moves, key = self._evaluate_move):
+        for move in sorted(self.board.legal_moves, key = self._move_sortkey):
             if move != top_move: # don't re-search top move
                 yield move
+
+    def _move_sortkey(self, move):
+        if self.board.is_capture(move):
+            # use mvv/lva score for captures
+            victim = self.board.piece_type_at(move.to_square)
+            if victim is None:
+                # en passant
+                victim_value = 1
+            else:
+                victim_value = self.PIECE_VALUES[victim]
+            attacker = self.board.piece_type_at(move.from_square)
+            # use a large multiplication value to ensure good captures are sorted first
+            # and bad captures later relative to quiet moves which use board evaluation
+            return self.PIECE_VALUES[attacker] - (64 * victim_value)
+        return self._evaluate_move(move)
 
     def _gen_quiesce_moves(self): 
         qs_moves = [
