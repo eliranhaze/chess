@@ -451,12 +451,11 @@ class Engine(object):
     def _gen_moves(self):
         self.move_hits += 1
         board_hash = self._get_hash()
-        # NOTE: should we use move from tp instead checking depth etc?
         top_move = self.top_moves.get(board_hash)
         if top_move:
             self.top_hits += 1
             yield top_move
-        for move in self._pseudo_sort(self.board.generate_legal_moves(), key = self._evaluate_move):
+        for move in sorted(self.board.legal_moves, key = self._evaluate_move):
             if move != top_move: # don't re-search top move
                 yield move
 
@@ -626,7 +625,7 @@ class Engine(object):
             self.top_hits += 1
             yield top_move
         # only checks and promotions - no move ordering as there should be only a few moves
-        for move in self.board.generate_legal_moves():
+        for move in self.board.legal_moves:
             if move != top_move or move.promotion or self._is_move_check(move):
                 yield move
 
@@ -659,7 +658,7 @@ class Engine(object):
         best_value = -self.INF
 
         # null move pruning
-        if can_null and depth > 2 and beta < self.INF and not self.endgame and not self._is_check():
+        if can_null and depth > 2 and beta < self.INF and not self.endgame and not self.board.is_check():
             R = 2 if depth < 6 else 3
             self._make_move(chess.Move.null())
             value = -self._negamax(depth - 1 - R, -beta, -beta + 1, False)
@@ -734,8 +733,6 @@ class Engine(object):
 
         self.ev += 1
     
-        # note: repetition not checked here but in negamax
-
         # return evaluation from transposition table if exists
         board_hash = self._get_hash()
         if board_hash in self.evals:
@@ -743,7 +740,7 @@ class Engine(object):
             return self.evals[board_hash]
 
         # check if current side is mated - negative evaluation for whichever side it is
-        if self._is_checkmate():
+        if self.board.is_checkmate():
             return -self.MATE_SCORE
 
         # check stalemate and insiffucient material - but only during endgame
@@ -895,10 +892,6 @@ class Engine(object):
             return self.PIECE_VALUES[chess.KNIGHT]
         return self.PIECE_VALUES[chess.PAWN]
 
-    def _num_pieces(self):
-        # an efficient function that calculates num of pieces on the board
-        return bitcount(self.board.occupied)
-
     def _is_hanging(self, color, piece):
         attackers = self.board.attackers(not color, piece)
         defenders = self.board.attackers(color, piece)
@@ -906,33 +899,11 @@ class Engine(object):
 
     def _is_move_check(self, move):
         self.board.push(move)
-        c = self._is_check()
+        check = self.board.is_check()
         self.board.pop()
-        return c
-
-    def _is_check(self):
-        # a slightly faster implementation than self.board.is_check
-        king_mask = self.board.occupied_co[self.board.turn] & self.board.kings
-        return self.board.attackers_mask(not self.board.turn, chess.msb(king_mask))
-
-    def _is_checkmate(self):
-        if not self._is_check():
-            return False
-
-        return not any(self.board.generate_legal_moves())
+        return check
 
     def _bb_count(self, x):
-        # NOTE:
-        # NOTE:
-        # NOTE:
-        #   In analyzer I got pretty weird results where this and another bitcount method
-        #   were both *slower* than bin.count('1'), when run in an actual program, despite much
-        #   better %timeit results.... so better actually test whether this works as fast as I'd like,
-        #   or whether I should just go back to bin.count
-        # NOTE:
-        # NOTE:
-        # NOTE:
-        # really fast popcount algorithm, from here: https://stackoverflow.com/a/51388846
         x = (x & 0x5555555555555555) + ((x >> 1) & 0x5555555555555555)
         x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333)
         x = (x & 0x0F0F0F0F0F0F0F0F) + ((x >> 4) & 0x0F0F0F0F0F0F0F0F)
