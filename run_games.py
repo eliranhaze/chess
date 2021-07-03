@@ -16,6 +16,8 @@ e2.book = 1
 ep2 = EnginePlayer(e2)
 ep2.name = e2.__module__
 
+# see helpful comment on testing new versions:
+# - http://www.talkchess.com/forum3/viewtopic.php?f=7&t=73406&start=20#p835322
 
 # 75 games at .2 move each takes about 50 minutes
 NUM_GAMES = 100
@@ -28,15 +30,17 @@ print('avg move depths: e1 %.2f, e2 %.2f' % (e1.average_depth(), e2.average_dept
 print('avg move times: e1 %.2f, e2 %.2f' % (e1.average_time(), e2.average_time()))
 
 
-# play against stockfish
-ENGINE_INSTANCE = ep2
-SF = StockfishPlayer('/content/chess/stockfish13', elo = 1500)
-print('running %d games: %s vs %s [%.2fs tpm]' % (NUM_GAMES, ENGINE_INSTANCE, SF, TPM))
+# play each engine against stockfish
+for ENGINE_INSTANCE in (ep1, ep2):
 
-gs = GameSeries(ENGINE_INSTANCE, SF, NUM_GAMES, TPM)
-print(gs.run())
-print('avg move depths: %.2f' % ENGINE_INSTANCE.engine.average_depth())
-print('avg move times: %.2f' % ENGINE_INSTANCE.engine.average_time())
+  SF = StockfishPlayer('/content/chess/stockfish13', elo = 1500)
+  print('running %d games: %s vs %s [%.2fs tpm]' % (NUM_GAMES, ENGINE_INSTANCE, SF, TPM))
 
-# TODO: handle better
-SF.sf.quit()
+  gs = GameSeries(ENGINE_INSTANCE, SF, NUM_GAMES, TPM)
+  print(gs.run())
+  print('avg move depths: %.2f' % ENGINE_INSTANCE.engine.average_depth())
+  print('avg move times: %.2f' % ENGINE_INSTANCE.engine.average_time())
+
+  # TODO: handle better
+  SF.sf.quit()
+
