@@ -460,11 +460,28 @@ class Engine(object):
                 yield move
 
     def _gen_quiesce_moves(self): 
-        # this is much faster in deep QS cases, but a bit slower in other cases - overall better, also saves memory
-        for move in self._gen_moves():
-            # TODO: should test QS with check vs without - got mated a few times by missing potential checks
-            if self.board.is_capture(move) or move.promotion:# or self._is_move_check(move):
-                yield move
+        qs_moves = [
+            m for m in self.board.legal_moves
+            if self.board.is_capture(m) or m.promotion == chess.QUEEN or self._is_move_check(m)
+        ]
+        # NOTE: probing tt move here was not found to be of much help
+        for move in sorted(qs_moves, key = self._mvv_lva_sort):
+            yield move
+
+    def _mvv_lva_sort(self, move):
+        if move.promotion:
+            return -self.PIECE_VALUES[move.promotion]
+        if not self.board.is_capture(move):
+            # check move
+            return 0
+        victim = self.board.piece_type_at(move.to_square)
+        if victim is None:
+            # en passant
+            victim_value = 1
+        else:
+            victim_value = self.PIECE_VALUES[victim]
+        attacker = self.board.piece_type_at(move.from_square)
+        return self.PIECE_VALUES[attacker] - victim_value
 
     def _quiesce(self, alpha, beta): # TODO: also figure out how to time-limit
 
@@ -614,6 +631,7 @@ class Engine(object):
         return best_move, move_values[best_move]
 
     def _gen_captures_checks(self): 
+        # NOTE: this should just use qs generator
         for move in self._gen_moves():
             if move == self.top_moves.get(self._get_hash()) or move.promotion or self.board.is_capture(move) or self._is_move_check(move):
                 yield move
@@ -626,6 +644,7 @@ class Engine(object):
             yield top_move
         # only checks and promotions - no move ordering as there should be only a few moves
         for move in self.board.legal_moves:
+            # NOTE: consider only queen promotions
             if move != top_move or move.promotion or self._is_move_check(move):
                 yield move
 
