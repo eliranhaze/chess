@@ -386,7 +386,9 @@ class Engine(object):
         for book_file in book_files:
             try:
                 with chess.polyglot.open_reader(book_file) as reader:
-                    move = reader.weighted_choice(self.board).move
+                    # we use choice instead of weighted_choice for better uniformity in testing
+                    # in real games we might want to use weighted_choice instead
+                    move = reader.choice(self.board).move
                     #print('selected book move: %s' % self.board.san(move))
                     return move
             except IndexError:
