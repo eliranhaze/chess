@@ -175,8 +175,11 @@ class GameSeries(object):
                 self.draws += 1
             #print(':', '1-0' if winner is white else ('1/2-1/2' if winner is None else '0-1'))
             if (r + 1) % self.PRINT_EVERY == 0:
-                print('+%d =%d -%d' % (self.wins, self.draws, self.losses), flush=True)
+                print(self.score_string(), flush=True)
         return self.wins, self.draws, self.losses
+
+    def score_string(self):
+        return '+%d =%d -%d' % (self.wins, self.draws, self.losses)
 
     def choose_sides(self, round_num):
         if round_num % 2 == 0:
