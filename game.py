@@ -25,22 +25,25 @@ class Player(object):
     def __str__(self):
         return self.name
 
-class StockfishPlayer(Player):
+class UCIEnginePlayer(Player):
 
-    def __init__(self, stockfish_path, elo = None, *args, **kwargs):
+    def __init__(self, name, path, elo = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.sf = chess.engine.SimpleEngine.popen_uci(stockfish_path)
+        self.engine = chess.engine.SimpleEngine.popen_uci(path)
         self.elo = elo
         if elo:
-            self.sf.configure({'UCI_LimitStrength':True})
-            self.sf.configure({'UCI_Elo':elo})
-        self.name = 'Stockfish 13' + (' [%d]' % self.elo if self.elo else '')
+            self.engine.configure({'UCI_LimitStrength':True})
+            self.engine.configure({'UCI_Elo':elo})
+        self.name = name + (' [%d]' % self.elo if self.elo else '')
 
     def move(self):
-        play_result = self.sf.play(board = self.board, limit = chess.engine.Limit(time=self.move_time))
+        play_result = self.engine.play(board = self.board, limit = chess.engine.Limit(time=self.move_time))
         if play_result.resigned:
             self.resigned = True
         return play_result.move
+
+    def close(self):
+        self.engine.quit()
 
 class HumanPlayer(Player):
 

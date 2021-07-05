@@ -37,16 +37,20 @@ print('avg move times: e1 %.2f, e2 %.2f' % (e1.average_time(), e2.average_time()
 # play each engine against stockfish
 for ENGINE_INSTANCE in (ep1, ep2):
 
-    SF = StockfishPlayer('/content/chess/stockfish13', elo = 1500)
-    print('running %d games: %s vs %s [%.2fs tpm]' % (NUM_GAMES, ENGINE_INSTANCE, SF, TPM))
+    SF = UCIEnginePlayer(name = 'stockfish 13', path = '/content/chess/stockfish13', elo = 1550)
+    CH = UCIEnginePlayer(name = 'cheese 2.2', path = '/content/chess/cheese22', elo = 1400)
+    
+    # TODO: also output pgns to file and calculate ratings with ordo: https://github.com/michiguel/Ordo
+    for UCI_ENGINE in (SF, CH):
+        print('running %d games: %s vs %s [%.2fs tpm]' % (NUM_GAMES, ENGINE_INSTANCE, UCI_ENGINE, TPM))
 
-    gs = GameSeries(ENGINE_INSTANCE, SF, NUM_GAMES, TPM)
-    try:
-        gs.run()
-    except KeyboardInterrupt:
-        print('stopping')
-        SF.sf.quit()
-    print(gs.score_string())
-    print('avg move depths: %.2f' % ENGINE_INSTANCE.engine.average_depth())
-    print('avg move times: %.2f' % ENGINE_INSTANCE.engine.average_time())
+        gs = GameSeries(ENGINE_INSTANCE, UCI_ENGINE, NUM_GAMES, TPM)
+        try:
+            gs.run()
+        except KeyboardInterrupt:
+            print('stopping')
+        UCI_ENGINE.close()
+        print(gs.score_string())
+        print('avg move depths: %.2f' % ENGINE_INSTANCE.engine.average_depth())
+        print('avg move times: %.2f' % ENGINE_INSTANCE.engine.average_time())
 
