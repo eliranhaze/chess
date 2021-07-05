@@ -37,8 +37,8 @@ print('avg move times: e1 %.2f, e2 %.2f' % (e1.average_time(), e2.average_time()
 # play each engine against stockfish
 for ENGINE_INSTANCE in (ep1, ep2):
 
-  SF = StockfishPlayer('/content/chess/stockfish13', elo = 1500)
-  print('running %d games: %s vs %s [%.2fs tpm]' % (NUM_GAMES, ENGINE_INSTANCE, SF, TPM))
+    SF = StockfishPlayer('/content/chess/stockfish13', elo = 1500)
+    print('running %d games: %s vs %s [%.2fs tpm]' % (NUM_GAMES, ENGINE_INSTANCE, SF, TPM))
 
     try:
         gs.run()
@@ -48,6 +48,6 @@ for ENGINE_INSTANCE in (ep1, ep2):
     print('avg move depths: e1 %.2f, e2 %.2f' % (e1.average_depth(), e2.average_depth()))
     print('avg move times: e1 %.2f, e2 %.2f' % (e1.average_time(), e2.average_time()))
 
-  # TODO: handle better
-  SF.sf.quit()
+    # TODO: handle better
+    SF.sf.quit()
 
