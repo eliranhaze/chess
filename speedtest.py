@@ -48,6 +48,9 @@ test('rn1qk2r/p3bppp/bpp1pn2/3p4/2PP4/1PB2NP1/P3PPBP/RN1QK2R w KQkq - 0 9')
 # an endgame position
 test('8/p6p/1p1Pk3/5p1p/1P3K1P/6P1/5P2/8 b - - 0 46')
 
+# avoid being mated
+test('2r3k1/5pp1/3p3p/8/8/6B1/5PPP/3R2K1 w - - 0 1')
+
 # mate in 2
 test('1r3b1k/5Qp1/p6B/q1Pp4/2p5/5P1P/P1K2P2/3R2R1 b - - 2 27', play = 2)
 
@@ -59,3 +62,7 @@ test('r1bqkb1r/pp1n1ppp/2p1pn2/3p2B1/2PP4/2N1PN2/PP3PPP/R2QKB1R b KQkq - 1 6', p
 
 # easy mate in 3, play to mate (depth >= 5 needed to find mate)
 test('r5rk/5p1p/5R2/4B3/8/8/7P/7K w', play = 4)
+
+# choose wisely: mate in 3 vs capturing queen
+test('2r3k1/5ppp/5b2/8/7Q/5N2/3R1PPP/6K1 b - - 0 1', play = 4)
+
