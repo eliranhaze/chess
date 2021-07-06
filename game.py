@@ -132,14 +132,13 @@ class Game(object):
 
     def result(self):
         if self.white.resigned:
-            return '0-1 (white resigns)'
+            return '0-1'
         if self.black.resigned:
-            return '1-0 (black resigns)'
+            return '1-0'
         return self.board.result()
 
     def pgn(self):
         game = chess.pgn.Game()
-        game.headers['Event'] = 'Engine game'
         game.headers['Date'] = time.ctime()
         game.headers['White'] = self.white.name
         game.headers['Black'] = self.black.name
@@ -156,27 +155,28 @@ class GameSeries(object):
 
     PRINT_EVERY = 10
 
-    def __init__(self, p1, p2, rounds, move_time):
+    def __init__(self, p1, p2, rounds, move_time, pgn_output = ''):
         self.p1 = p1
         self.p2 = p2
         self.rounds = rounds
         self.move_time = move_time
+        self.pgn_output = pgn_output
         self.wins = 0
         self.draws = 0
         self.losses = 0
 
     def run(self):
         for r in range(self.rounds):
-            #print('game %d' % (r+1), end='', flush=True)
             white, black = self.choose_sides(r)
-            winner = Game(white, black, self.move_time).play()
+            game = Game(white, black, self.move_time)
+            winner = game.play()
             if winner == self.p1:
                 self.wins += 1
             elif winner == self.p2:
                 self.losses += 1
             else:
                 self.draws += 1
-            #print(':', '1-0' if winner is white else ('1/2-1/2' if winner is None else '0-1'))
+            self._write_pgn(game)
             if (r + 1) % self.PRINT_EVERY == 0:
                 print(self.score_string(), flush=True)
         return self.wins, self.draws, self.losses
@@ -188,3 +188,8 @@ class GameSeries(object):
         if round_num % 2 == 0:
             return self.p1, self.p2
         return self.p2, self.p1
+
+    def _write_pgn(self, game):
+        if self.pgn_output:
+            with open(self.pgn_output, 'a') as out:
+                out.write('%s\n\n' % game.pgn())
