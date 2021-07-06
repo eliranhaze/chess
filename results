@@ -250,3 +250,57 @@ avg move times: 0.28
 
 --- strangely about the same, but note that avg move time is higher, which means that new version
     can search faster. COMMITING
+
+--
+July 5
+-- stable vs new game over condition
++33 =12 -55
+avg move depths: e1 4.50, e2 4.63
+avg move times: e1 0.30, e2 0.30
+
+-- stable vs stockfish 1500
++67 =5 -28
+avg move depths: 4.29
+avg move times: 0.27
+
+-- new game over vs stockfish 1500
++72 =2 -26
+avg move depths: 4.42
+avg move times: 0.28
+
+-- stable vs new game over, again
++33 =10 -57
+
+NOTE: realize implementation of new game over wasn't sound - not sure why it was winning
+
+-- stable vs fixed new game over
++56 =6 -57
+avg move depths: e1 4.35, e2 4.45
+avg move times: e1 0.29, e2 0.30
+--- worse than the version with the bug!! what's going on??
+
+######
+NOTE: it looks that the 'incorrect' version (engine3) is able to find mates even with this bug - 
+it may be that those mates are found in main search anyway and not in quiesce, even though there are some undetected mates in quiesce - those are either found anyway in main search, are irrelevant, or to rare to have an effect...
+NOTE 2: it may also be possible that i get skewerd scores in self play because of resignations: it's possible that because engine3 doesn't detect some mates it doesn't resign when it should, and when it does have mate the other engine resigns and detects it for him... so should also test with resignation off.
+######
+
+engine vs stockfish 1550 [0.2]
++143 =9 -98
+avg move depths: 4.15
+avg move times: 0.25
+-> +63 elo
+(note: ~95 minutes for 250 games at 0.2 tpm against stockfish)
+
+engine3 vs stockfish 1550 [0.2]
++130 =9 -111
+avg move depths: 4.28
+avg move times: 0.25
+-> +26 elo
+
+engine3_1 vs stockfish 1550 [0.2]
++165 =3 -82
+avg move depths: 4.18
+avg move times: 0.25
+-> +120 elo
+(also significant vs both above) -- so change DOES work! - commit!
