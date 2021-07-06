@@ -21,16 +21,15 @@ ep2.name = e2.__module__
 # see helpful comment on testing new versions:
 # - http://www.talkchess.com/forum3/viewtopic.php?f=7&t=73406&start=20#p835322
 
-PGN_FILE = 'games_%s.pgn' % datetime.now().strftime('%Y%m%d_%H%M%S')
-NUM_GAMES = 10
-TPM = .025
+# self play
+PGN_FILE = 'selfplay_%s.pgn' % datetime.now().strftime('%Y%m%d_%H%M%S')
+NUM_GAMES = 2
+TPM = .02
 print('running %d games: %s vs %s [%.2fs tpm]' % (NUM_GAMES, ep1, ep2, TPM))
-
-# TODO: run the following command to have the ratings results in a file:
-    # printf "readpgn games_20210705_235816.pgn\nelo\nmm\nratings>ratings.out\nx" | ./bayeselo
 
 gs = GameSeries(ep1, ep2, NUM_GAMES, TPM, PGN_FILE)
 try:
+    pass
     gs.run()
 except KeyboardInterrupt:
     print('stopping')
@@ -38,22 +37,34 @@ print(gs.score_string())
 print('avg move depths: e1 %.2f, e2 %.2f' % (e1.average_depth(), e2.average_depth()))
 print('avg move times: e1 %.2f, e2 %.2f' % (e1.average_time(), e2.average_time()))
 
-# play each engine against stockfish
-for ENGINE_INSTANCE in (ep1, ep2):
+# TODO: calc average move time in Game for each player and get the number from there,
+# also average depth - either see if can be gotten from uci, or just have a default 1
+# for uci engines... and then the code duplication here can be removed!
 
-    SF = UCIEnginePlayer(name = 'stockfish 13', path = '/content/chess/stockfish13', elo = 1550)
-    CH = UCIEnginePlayer(name = 'cheese 2.2', path = '/content/chess/cheese22', elo = 1400)
-    
-    for UCI_ENGINE in (SF, CH):
-        print('running %d games: %s vs %s [%.2fs tpm]' % (NUM_GAMES, ENGINE_INSTANCE, UCI_ENGINE, TPM))
+# gauntlet
+PGN_FILE = 'gauntlet_%s.pgn' % datetime.now().strftime('%Y%m%d_%H%M%S')
+NUM_GAMES = 2
+TPM = .1
 
-        gs = GameSeries(ENGINE_INSTANCE, UCI_ENGINE, NUM_GAMES, TPM)
+import settings
+uci_engines = [
+    UCIEnginePlayer(name = name, path = v['path'], elo = v['elo'])
+    for name, v in settings.uci_engines.items()
+]
+for ep in (ep1,ep2):
+
+    for uci_engine in uci_engines:
+        print('running %d games: %s vs %s [%.2fs tpm]' % (NUM_GAMES, ep, uci_engine, TPM))
+
+        gs = GameSeries(ep, uci_engine, NUM_GAMES, TPM, PGN_FILE)
         try:
             gs.run()
         except KeyboardInterrupt:
             print('stopping')
-        UCI_ENGINE.close()
         print(gs.score_string())
-        print('avg move depths: %.2f' % ENGINE_INSTANCE.engine.average_depth())
-        print('avg move times: %.2f' % ENGINE_INSTANCE.engine.average_time())
+        print('avg move depths: %.2f' % ep.engine.average_depth())
+        print('avg move times: %.2f' % ep.engine.average_time())
+
+for uci_engine in uci_engines:
+    uci_engine.close()
 
