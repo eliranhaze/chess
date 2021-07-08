@@ -630,12 +630,6 @@ class Engine(object):
 
         return best_move, move_values[best_move]
 
-    def _gen_captures_checks(self): 
-        # NOTE: this should just use qs generator
-        for move in self._gen_moves():
-            if move == self.top_moves.get(self._get_hash()) or move.promotion or self.board.is_capture(move) or self._is_move_check(move):
-                yield move
-
     def _gen_checks(self): 
         self.move_hits += 1
         top_move = self.top_moves.get(self._get_hash())
@@ -644,8 +638,7 @@ class Engine(object):
             yield top_move
         # only checks and promotions - no move ordering as there should be only a few moves
         for move in self.board.legal_moves:
-            # NOTE: consider only queen promotions
-            if move != top_move or move.promotion or self._is_move_check(move):
+            if move != top_move or move.promotion == chess.QUEEN or self._is_move_check(move):
                 yield move
 
     def _negamax(self, depth, alpha, beta, can_null = True):
@@ -691,7 +684,7 @@ class Engine(object):
             max_pos_gain = 320 * depth
             e = self._evaluate_board()
             if e + max_pos_gain < alpha:
-                gen_moves = self._gen_captures_checks
+                gen_moves = self._gen_quiesce_moves
                 if e + self._max_opponent_piece_value() + max_pos_gain < alpha:
                     gen_moves = self._gen_checks
 
@@ -732,6 +725,9 @@ class Engine(object):
         self.tp[board_hash] = Entry(value, entry_type, depth)
 
         return alpha
+
+    def _static_exchange_evaluation(self, move):
+        pass
 
     def _table_maintenance(self):
         limits = {
