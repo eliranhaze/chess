@@ -69,6 +69,9 @@ class Engine(object):
             62: (chess.SquareSet([53,54,55]).mask, chess.SquareSet([45,46,47]).mask),
             63: (chess.SquareSet([54,55]).mask, chess.SquareSet([46,47]).mask),
         }
+    KING_SURROUNDING_SQUARES = {
+            sq: list(chess.SquareSet(chess.BB_KING_ATTACKS[sq])) for sq in range(64)
+        }
 
     # DIRECTIONS
     N = 8
@@ -230,35 +233,6 @@ class Engine(object):
     def average_time(self):
         return sum(self.time_record) / len(self.time_record)
 
-    def play_stockfish(self, level, self_color = True, move_time = .1, stockfish_path = '/usr/local/bin/stockfish'):
-        # TODO: check if ponder is on for sf, and turn off if so
-        import chess.engine
-        print('%s playing stockfish rated %d as %s' % (self, level, ['black','white'][self_color]))
-        sf = chess.engine.SimpleEngine.popen_uci(stockfish_path)
-        sf.configure({'UCI_LimitStrength':True})
-        sf.configure({'UCI_Elo':level})
-        self._init_game_state()
-
-        self.color = self_color
-        while not self._is_game_over():
-            if self.board.turn == self_color:
-                # NOTE: gotta call get_hash here because it does not reset after opponent move!! 
-                # OR... Maybe in search_root
-                self._get_hash()
-                self._play_move()
-                #time.sleep(.5) # let the cpu relax for a moment
-            else:
-                move = sf.play(board = self.board, limit = chess.engine.Limit(time=move_time)).move
-                print('sf playing %s' % self.board.san(move))
-                self.board.push(move)
-            self._display_board()
-        sf.quit()
-        print('Game over: %s' % self._game_result())
-        players = ['engine', 'stockfish %d' % level]
-        print(self.game_pgn(white = players[not self_color], black = players[self_color]))
-        winner = not self_color if self.resigned else self.board.outcome().winner
-        return None if winner is None else winner == self_color
-
     def play(self, player_color = chess.WHITE, board = None):
         self.board = board if board else chess.Board()
         self._get_hash() # for init
@@ -346,7 +320,6 @@ class Engine(object):
     def play_move(self):
         self._hash = None
         move = self._select_move()
-        #print('playing %s' % self.board.san(move))
         return move
 
     def _play_move(self):
@@ -389,11 +362,9 @@ class Engine(object):
                     # we use choice instead of weighted_choice for better uniformity in testing
                     # in real games we might want to use weighted_choice instead
                     move = reader.choice(self.board).move
-                    #print('selected book move: %s' % self.board.san(move))
                     return move
             except IndexError:
                 continue
-        #print('out of book!')
         self.book = False
 
     def _iterative_deepening(self):
@@ -532,7 +503,15 @@ class Engine(object):
 
         # remember that in negamax, both players are trying to maximize their score
         # alpha represents current player's best so far, and beta the opponent's best so far (from current player POV)
-        stand_pat = self._evaluate_board()
+
+        # check for mate here instead in eval (as eval is used also in move ordering, we want to avoid
+        # mate checking there.
+        # this can be avoided if we know we are never in check in qs - i.e. if we extend main search whenever
+        # in check - should be tried in the future
+        if self.board.is_checkmate():
+            stand_pat = -self.MATE_SCORE
+        else:
+            stand_pat = self._evaluate_board()
         self.nodes += 1
         # TODO: test with a margin here instead, e.g., maybe cutoff if we're at 198 and beta is 200... could 
         # speed things up without real loss, and the speed might be worth it
@@ -691,7 +670,7 @@ class Engine(object):
             if alpha >= beta:
                 return val
 
-        if depth == 0 or self.board.is_game_over():
+        if depth == 0:
             return self._quiesce(alpha, beta)
 
         value = -self.INF
@@ -716,7 +695,9 @@ class Engine(object):
                 if e + self._max_opponent_piece_value() + max_pos_gain < alpha:
                     gen_moves = self._gen_checks
 
+        move_count = 0
         for move in gen_moves():
+            move_count += 1
             self.depth = depth
             piece_from, piece_to = self._make_move(move)
             value = -self._negamax(depth - 1, -beta, -alpha)
@@ -730,6 +711,13 @@ class Engine(object):
                         # fail low: position is too good - opponent has an already searched way to avoid it.
                         break
 
+        if move_count == 0 and not any(self.board.legal_moves):
+            # checkmate or stalemate
+            if self.board.is_check():
+                value = alpha = -self.MATE_SCORE
+            else:
+                value = alpha = 0
+        
         if value <= orig_alpha:
             entry_type = UPPER
             # remember alpha as upper bound - we didn't manage to increase it
@@ -758,10 +746,8 @@ class Engine(object):
         for var, limit in limits.items():
             table = getattr(self, var)
             if len(table) > limit:
-                print('###### CLEARING %s ######' % var.upper())
                 table.clear()
                 gc.collect()
-                print('###### CLEARED ######')
 
     def _evaluate_move(self, move):
         piece_from, piece_to = self._make_move(move)
@@ -778,10 +764,6 @@ class Engine(object):
         if board_hash in self.evals:
             self.tt += 1
             return self.evals[board_hash]
-
-        # check if current side is mated - negative evaluation for whichever side it is
-        if self.board.is_checkmate():
-            return -self.MATE_SCORE
 
         # check stalemate and insiffucient material - but only during endgame
         if self.endgame:
@@ -875,6 +857,7 @@ class Engine(object):
         # TODO: perhaps also give small bonus for any other pieces sheltering king
         #       can just intersect them with KING_SURROUNDING_SQUARES - but not here, as this hashes
         #       only kings and pawns
+        # TODO: perhaps a better idea - penalty for attacking pieces
         if not king_sq in self.KING_SHELTER_SQUARES[color] or self.endgame:
             return 0
         kp_key = (king_sq, pawns)
@@ -899,6 +882,17 @@ class Engine(object):
                     kp_val -= 25
         self.kp_hash[kp_key] = kp_val
         return kp_val
+
+    def _king_attacked_eval(self, king_sq, color):
+        # NOTE: This is too slow - takes more than entire piece_eval function
+        #       Instead, I should calculate attack by enemy piece type - bishops, knights, etc.,
+        #       and store hash for each piece types and relevant information - and see what is the
+        #       hit rate for such a hash and how fast it is.
+        #       - See _bishop_attackers_mask below for a start.
+        val = 0
+        for sq in self.KING_SURROUNDING_SQUARES[king_sq]:
+            val -= self._bb_count(self.board.attackers_mask(not color, sq)) * 15
+        return val
 
     def _material_count(self, color):
         o = self.board.occupied_co[color]
@@ -951,26 +945,6 @@ class Engine(object):
         x = (x & 0x0000FFFF0000FFFF) + ((x >> 16) & 0x0000FFFF0000FFFF)
         return (x & 0x00000000FFFFFFFF) + ((x >> 32) & 0x00000000FFFFFFFF)
 
-    def _bb_rook_attacks(self, rooks_bits):
-        attacks = 0
-        while rooks_bits: # this traverses the bits of each piece, taken from chess.scan_forward used in SquareSets
-            r = rooks_bits & -rooks_bits
-            attacks |= self._bb_single_rook_attacks(r)
-            rooks_bits ^= r
-        return attacks
-
-    def _bb_single_rook_attacks(self, r):
-        # based on https://www.chessprogramming.org/Hyperbola_Quintessence
-        # and https://www.chessprogramming.org/Subtracting_a_Rook_from_a_Blocking_Piece
-        rnk = RANK_TABLE[r]
-        fle = FILE_TABLE[r]
-        r_rev = reverse_mask64(r)
-        o = self.board.occupied & rnk
-        att = ((o-2*r) ^ reverse_mask64(reverse_mask64(o) - 2 * r_rev)) & rnk
-        o = self.board.occupied & fle
-        att |= ((o-2*r) ^ reverse_mask64(reverse_mask64(o) - 2 * r_rev)) & fle
-        return att
-
     # HASHING FUNCTIONS
 
     def _piece_code(self, piece_type, color):
@@ -1008,31 +982,12 @@ class Engine(object):
 
     def _get_hash_default(self):
         if self._hash is None:
-            #self._hash = hash1(self.board)
-            # better than mine - sound, faster, and takes a little less memory
             self._hash = self.board._transposition_key()
         return self._hash
 
     def _get_hash_z(self):
         if self._hash is None:
             self._hash = self._board_hash()
-        return self._hash
-
-    def _get_hash(self):
-        # NOTES
-        #   - strangely, my hashing works faster than the zobrist method, although it takes ~2.5x memory
-        #   - hash saving as below does speed things up a bit
-        #   - saving hashes in a stack was tried - and didn't improve things, probably because hash calculation is pretty fast
-
-        if self._hash is None:
-            self._hash = hash1(self.board)
-        return self._hash
-
-        if self._hash is None:
-            self._hash = self._board_hash()
-        #if self._board_hash() != self._hash:
-        #    print('HASH PROBLEMS !!!! get')
-        #    raise RuntimeError()
         return self._hash
 
     def _make_move_default(self, move):
@@ -1100,64 +1055,3 @@ class Engine(object):
             size += sum(map(getsizeof, struct.values())) + sum(map(getsizeof, struct.keys()))
         return size / 1024 / 1024
 
-
-# GENERAL UTILS
-
-def bitcount(x):
-    return bin(x).count('1')
-
-def hash1(board):
-    # note: en passant / castling allowed should be included as well -- right now this may be good enough
-    w = board.occupied_co[True]
-    b = board.occupied_co[False]
-    return (board.pawns & w, board.knights & w, board.bishops & w, board.rooks & w, board.queens & w, board.kings & w,
-            board.pawns & b, board.knights & b, board.bishops & b, board.rooks & b, board.queens & b, board.kings & b,
-            board.turn)
-
-def knight_moves(sq):
-    return [sq + k for k in Engine.KNIGHT if 0 <= sq + k < 64]
-
-NOT_A_FILE = ~chess.BB_FILE_A
-NOT_B_FILE = ~chess.BB_FILE_B
-NOT_G_FILE = ~chess.BB_FILE_G
-NOT_H_FILE = ~chess.BB_FILE_H
-NOT_AB_FILE = NOT_A_FILE & NOT_B_FILE
-NOT_GH_FILE = NOT_G_FILE & NOT_H_FILE
-
-def bb_knight_attacks(bits): # This is comparable in speed to above with python, but insanely faster with pypy
-    return  (bits << 6) & NOT_GH_FILE  | \
-            (bits << 10) & NOT_AB_FILE | \
-            (bits << 15) & NOT_H_FILE  | \
-            (bits << 17) & NOT_A_FILE  | \
-            (bits >> 6)  & NOT_AB_FILE | \
-            (bits >> 10) & NOT_GH_FILE | \
-            (bits >> 15) & NOT_A_FILE  | \
-            (bits >> 17) & NOT_H_FILE
-
-def bb_wpawn_attacks(bits): 
-    return  (bits << 9) & NOT_A_FILE  | \
-            (bits << 7) & NOT_H_FILE
-
-def bb_bpawn_attacks(bits):
-    return  (bits >> 7) & NOT_A_FILE  | \
-            (bits >> 9) & NOT_H_FILE
-
-RANK_TABLE = {}
-for rank in chess.BB_RANKS:
-    for sq in chess.SquareSet(rank):
-        RANK_TABLE[2**sq] = rank
-
-FILE_TABLE = {} # check performance - perhaps better to have array and to access by turning bits to square with log
-for fl in chess.BB_FILES:
-    for sq in chess.SquareSet(fl):
-        FILE_TABLE[2**sq] = fl
-
-def reverse_mask64(x):
-    # reverses 64 bits
-    x = ((x & 0x5555555555555555) << 1) | ((x & 0xAAAAAAAAAAAAAAAA) >> 1)
-    x = ((x & 0x3333333333333333) << 2) | ((x & 0xCCCCCCCCCCCCCCCC) >> 2)
-    x = ((x & 0x0F0F0F0F0F0F0F0F) << 4) | ((x & 0xF0F0F0F0F0F0F0F0) >> 4)
-    x = ((x & 0x00FF00FF00FF00FF) << 8) | ((x & 0xFF00FF00FF00FF00) >> 8)
-    x = ((x & 0x0000FFFF0000FFFF) << 16) | ((x & 0xFFFF0000FFFF0000) >> 16)
-    x = ((x & 0x00000000FFFFFFFF) << 32) | ((x & 0xFFFFFFFF00000000) >> 32)
-    return x
