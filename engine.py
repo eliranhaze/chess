@@ -681,7 +681,7 @@ class Engine(object):
         # futility pruning
         gen_moves = self._gen_moves
         if depth < 4:
-            max_pos_gain = 320 * depth
+            max_pos_gain = 120 * depth
             e = self._evaluate_board()
             if e + max_pos_gain < alpha:
                 gen_moves = self._gen_quiesce_moves
