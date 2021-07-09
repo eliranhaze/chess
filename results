@@ -304,3 +304,41 @@ avg move depths: 4.18
 avg move times: 0.25
 -> +120 elo
 (also significant vs both above) -- so change DOES work! - commit!
+
+
+==========================================
+320 vs 150 f prune:
+
+Rank Name      Elo    +    - games score oppo. draws 
+   1 engine3    20   30   30   100   56%   -20   17% 
+   2 engine    -20   30   30   100   45%    20   17% 
+
+Rank Name                  Elo    +    - games score oppo. draws 
+   1 Cheese 2.2 [1000]    1992   59   51   150   88%  1646    8% 
+   2 engine               1677   38   37   225   51%  1677    6% 
+   3 engine3              1614   38   38   225   44%  1677    5% 
+   4 Stockfish 13 [1550]  1550   42   43   150   39%  1646    4% 
+   5 Arasan 22.3 [1300]   1490   43   45   150   31%  1646    5% 
+
+kinda weird... running again
+
+---
+320 v 120 f prune:
+
+Rank Name      Elo    +    - games score oppo. draws 
+   1 engine3    32   25   24   150   59%   -32   21% 
+   2 engine    -32   24   25   150   41%    32   21% 
+
+Rank Name                  Elo    +    - games score oppo. draws 
+   1 engine3              1644   29   28   300   60%  1562    4% 
+   2 engine               1584   28   27   300   53%  1562    7% 
+   3 Arasan 22.3 [1300]   1574   27   27   300   45%  1614    9% 
+   4 Stockfish 13 [1550]  1550   28   29   300   43%  1614    2% 
+
+- looks good - committing
+
+
+===================================
+NOTE: Just found out (July 8) that opening book was not used at all after the first game.... and most selfplay games had the same
+opening moves (with that weird ass 2.. Qf6), sometimes up to move 15... Now fixed this, and added wdl per opening to game series.
+So need to recheck some of the recent changes!!!! <- VERY IMPORTANT!!

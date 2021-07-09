@@ -11,7 +11,7 @@ ep1 = EnginePlayer(e1)
 ep1.name = e1.__module__
 
 # engine with some change
-import engine3 as engine_ver2
+import engine_see2 as engine_ver2
 e2 = engine_ver2.Engine()
 e2.MAX_ITER_DEPTH = 11
 e2.book = 1
@@ -23,23 +23,23 @@ ep2.name = e2.__module__
 
 # self play
 PGN_FILE = 'selfplay_%s.pgn' % datetime.now().strftime('%Y%m%d_%H%M%S')
-NUM_GAMES = 2
-TPM = .02
+NUM_GAMES = 20
+TPM = .005
 print('running %d games: %s vs %s [%.2fs tpm]' % (NUM_GAMES, ep1, ep2, TPM))
 
 gs = GameSeries(ep1, ep2, NUM_GAMES, TPM, PGN_FILE)
 try:
-    pass
     gs.run()
 except KeyboardInterrupt:
     print('stopping')
-print(gs.score_string())
+gs.report()
 print('avg move depths: e1 %.2f, e2 %.2f' % (e1.average_depth(), e2.average_depth()))
 print('avg move times: e1 %.2f, e2 %.2f' % (e1.average_time(), e2.average_time()))
 
 # TODO: calc average move time in Game for each player and get the number from there,
 # also average depth - either see if can be gotten from uci, or just have a default 1
 # for uci engines... and then the code duplication here can be removed!
+# NOTE: I do want to have average time for uci engines, because playing vs cheese seems to take longer for some reason...
 
 # gauntlet
 PGN_FILE = 'gauntlet_%s.pgn' % datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -61,7 +61,7 @@ for ep in (ep1,ep2):
             gs.run()
         except KeyboardInterrupt:
             print('stopping')
-        print(gs.score_string())
+        gs.report()
         print('avg move depths: %.2f' % ep.engine.average_depth())
         print('avg move times: %.2f' % ep.engine.average_time())
 

@@ -145,7 +145,6 @@ class Engine(object):
     def __init__(self):
         self._init_sq_tables()
         self._init_game_state()
-        self.book = self.BOOK
         self.move_time_limit = self.MOVE_TIME_LIMIT
         self.depth_record = []
         self.time_record = []
@@ -180,6 +179,7 @@ class Engine(object):
 
     def _init_game_state(self, board = None):
         self.board = board if board else chess.Board()
+        self.book = self.BOOK
         self.endgame = False
         self.resigned = False
         self._hash = None

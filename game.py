@@ -78,6 +78,9 @@ class EnginePlayer(Player):
             return None
         return self.engine.play_move() # should only return move - not change the board!
 
+    def average_move_time(self):
+        return self.engine.average_time()
+
 class Game(object):
 
     def __init__(self, white: Player, black: Player, move_time: float):
@@ -164,25 +167,47 @@ class GameSeries(object):
         self.wins = 0
         self.draws = 0
         self.losses = 0
+        self.wdl_by_opening = {}
 
     def run(self):
         for r in range(self.rounds):
             white, black = self.choose_sides(r)
             game = Game(white, black, self.move_time)
             winner = game.play()
+            opening = tuple(game.board.move_stack[:4])
+            opening_wdl = self.wdl_by_opening.setdefault(opening, [0,0,0])
             if winner == self.p1:
                 self.wins += 1
+                opening_wdl[0] += 1
             elif winner == self.p2:
                 self.losses += 1
+                opening_wdl[2] += 1
             else:
                 self.draws += 1
+                opening_wdl[1] += 1
             self._write_pgn(game)
             if (r + 1) % self.PRINT_EVERY == 0:
                 print(self.score_string(), flush=True)
         return self.wins, self.draws, self.losses
 
+    def report(self):
+        print(self.score_string())
+        for o, wdl in self.wdl_by_opening.items():
+            print('%s: %s' % (self._opening_string(o), self._score_string(wdl)), flush=True)
+
     def score_string(self):
-        return '+%d =%d -%d' % (self.wins, self.draws, self.losses)
+        return self._score_string((self.wins, self.draws, self.losses))
+
+    def _score_string(self, wdl):
+        return '+%d =%d -%d' % tuple(wdl)
+
+    def _opening_string(self, o):
+        board = chess.Board()
+        sans = []
+        for move in o:
+            sans.append(board.san(move))
+            board.push(move)
+        return '1. %s %s 2. %s %s' % tuple(sans)
 
     def choose_sides(self, round_num):
         if round_num % 2 == 0:
