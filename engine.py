@@ -382,6 +382,15 @@ class Engine(object):
             if abs(move_eval) == self.MATE_SCORE or self._is_move_time_over():
                 break
         self.depth_record.append(depth)
+
+        if best_move is None:
+            # if we timed out before completely searching one root move then
+            # see if there's a tt move, and if not just choose the best eval move
+            board_hash = self._get_hash()
+            if board_hash in self.top_moves:
+                best_move = self.top_moves[board_hash]
+            else:
+                best_move = max(self.board.legal_moves, key = self._move_sortkey)
         return best_move, move_eval
 
     def _check_endgame(self):
