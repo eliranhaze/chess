@@ -298,6 +298,7 @@ class Engine(object):
 
     def _log(self, msg):
         if self.LOG:
+            # Should be ply and not depth
             prefix = '---Q' if self.depth == 'Q' else '-' * (self.ENDGAME_DEPTH-self.depth)
             print('%s %s' % (prefix, msg))
 
@@ -373,7 +374,10 @@ class Engine(object):
         self._table_maintenance()
         best_move = None
         for depth in range(1, self.MAX_ITER_DEPTH + 1):
-            best_move, move_eval = self._search_root(depth = depth)
+            depth_best_move, depth_best_eval = self._search_root(depth = depth)
+            if depth_best_move is not None:
+                # may be None if timed out
+                best_move, move_eval = depth_best_move, depth_best_eval
             if abs(move_eval) == self.MATE_SCORE or self._is_move_time_over():
                 break
         self.depth_record.append(depth)
@@ -575,12 +579,10 @@ class Engine(object):
 
         return alpha
 
-    # NOTE: for ideas on how to improve search, with details and elo estimates, look here:
-    #       - https://github.com/AndyGrant/Ethereal/blob/master/src/search.c
     def _search_root(self, depth):
 
         t0 = time.time()
-        self.depth = depth
+        self.time_over = False
 
         board_hash = self._get_hash()
         best_move = None
@@ -593,12 +595,13 @@ class Engine(object):
 
         for move in self._gen_moves():
             t1 = time.time()
-            self.depth = depth
-            #if self.PRINT:
-            #    print('evaluating move %s' % self.board.san(move))
+            if self.PRINT:
+                print('evaluating move %s' % self.board.san(move))
             piece_from, piece_to = self._make_move(move)
             value =  -self._negamax(depth - 1, -beta, -alpha)
             self._unmake_move(move, piece_from, piece_to)
+            if self.time_over:
+                break
             move_values[move] = value
             if value > best_value:
                 best_value = value
@@ -607,8 +610,8 @@ class Engine(object):
             # NOTE: max might run slightly slower than a simple if test (as checked in ipy) - check this
             alpha = max(alpha, value)
 
-            #if self.PRINT:
-            #    print('... %d nodes evaluated (%.4fs)' % (self.nodes - prev_nodes, time.time()-t1))
+            if self.PRINT:
+                print('... %d nodes evaluated (%.4fs)' % (self.nodes - prev_nodes, time.time()-t1))
             prev_nodes = self.nodes
 
             # consider terminating due to time
@@ -628,7 +631,7 @@ class Engine(object):
             #print('best eval: %.2f (depth = %s)' % (move_values[best_move]/100, depth))
         #print('took %.1fs' % (time.time()-t0))
 
-        return best_move, move_values[best_move]
+        return best_move, move_values.get(best_move)
 
     def _gen_checks(self): 
         self.move_hits += 1
@@ -643,7 +646,9 @@ class Engine(object):
 
     def _negamax(self, depth, alpha, beta, can_null = True):
 
-        self.depth = depth
+        if self._is_move_time_over():
+            self.time_over = True
+            return alpha
 
         orig_alpha = alpha
         board_hash = self._get_hash()
@@ -691,7 +696,6 @@ class Engine(object):
         move_count = 0
         for move in gen_moves():
             move_count += 1
-            self.depth = depth
             piece_from, piece_to = self._make_move(move)
             value = -self._negamax(depth - 1, -beta, -alpha)
             self._unmake_move(move, piece_from, piece_to)
