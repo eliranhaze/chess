@@ -373,6 +373,7 @@ class Engine(object):
         self._check_endgame()
         self._table_maintenance()
         best_move = None
+        move_eval = -self.INF
         for depth in range(1, self.MAX_ITER_DEPTH + 1):
             depth_best_move, depth_best_eval = self._search_root(depth = depth)
             if depth_best_move is not None:
@@ -714,19 +715,20 @@ class Engine(object):
                 value = alpha = -self.MATE_SCORE
             else:
                 value = alpha = 0
-        
-        if value <= orig_alpha:
-            entry_type = UPPER
-            # remember alpha as upper bound - we didn't manage to increase it
-            value = alpha
-        elif value >= beta:
-            entry_type = LOWER
-            # remember beta as lower bound - the position is too good
-            value = beta
-        else:
-            # remember exact value higher than alpha but still lower than beta
-            entry_type = EXACT
-        self.tp[board_hash] = Entry(value, entry_type, depth)
+
+        if not self.time_over:
+            if value <= orig_alpha:
+                entry_type = UPPER
+                # remember alpha as upper bound - we didn't manage to increase it
+                value = alpha
+            elif value >= beta:
+                entry_type = LOWER
+                # remember beta as lower bound - the position is too good
+                value = beta
+            else:
+                # remember exact value higher than alpha but still lower than beta
+                entry_type = EXACT
+            self.tp[board_hash] = Entry(value, entry_type, depth)
 
         return alpha
 
