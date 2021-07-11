@@ -17,7 +17,12 @@ e.DEPTH = depth
 e.move_time_limit = time_limit
 e.BOOK = 0
 
+total_nodes = 0
+total_time = 0
+
 def test(fen, play = 0):
+    global total_nodes
+    global total_time
     e.set_fen(fen)
     t0 = time.time()
     for _ in range(play):
@@ -26,9 +31,13 @@ def test(fen, play = 0):
             break
     if not e.board.is_game_over():
         move = e._select_move()
-        print('selected %s [%.3fs]' % (e.board.san(move), time.time() - t0))
-    print('nodes visited:', e.nodes)
-    print('positions evaluated: %s (%.1f%% fetched)' % (e.ev, 100*e.tt/e.ev))
+        print('selected %s [%.1fs]' % (e.board.san(move), time.time() - t0))
+    t = time.time() - t0
+    total_nodes += e.nodes
+    total_time += t
+    knps = e.nodes / t / 1000
+    print('nodes:', e.nodes, '[%.1fk nps]' % knps)
+    print('evals: %s (%.0f%% fetched)' % (e.ev, 100*e.tt/e.ev))
 
 # Might want to add some more from here: https://www.chessprogramming.org/Test-Positions
 # Also: https://www.chessprogramming.org/Strategic_Test_Suite
@@ -71,3 +80,6 @@ test('r5rk/5p1p/5R2/4B3/8/8/7P/7K w', play = 4)
 
 # choose wisely: mate in 3 vs capturing queen
 test('2r3k1/5ppp/5b2/8/7Q/5N2/3R1PPP/6K1 b - - 0 1', play = 4)
+
+print('---------')
+print('total nodes:', total_nodes, '[%.1fk nps]' % (total_nodes / total_time / 1000))
