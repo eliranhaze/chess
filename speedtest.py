@@ -5,6 +5,7 @@ import time
 
 engine = importlib.import_module(sys.argv[1])
 depth = int(sys.argv[2])
+time_limit = float(sys.argv[3]) if len(sys.argv) > 3 else 2000
 
 e = engine.Engine()
 e.LOG = 0
@@ -13,16 +14,19 @@ e.DISPLAY = 0
 e.ITERATIVE = 1
 e.MAX_ITER_DEPTH = depth
 e.DEPTH = depth
-e.move_time_limit = 2000
-e.book = 0
+e.move_time_limit = time_limit
+e.BOOK = 0
 
 def test(fen, play = 0):
     e.set_fen(fen)
     t0 = time.time()
     for _ in range(play):
         e._play_move()
-    move = e._select_move()
-    print('selected %s [%.3fs]' % (e.board.san(move), time.time() - t0))
+        if e.board.is_game_over():
+            break
+    if not e.board.is_game_over():
+        move = e._select_move()
+        print('selected %s [%.3fs]' % (e.board.san(move), time.time() - t0))
     print('nodes visited:', e.nodes)
     print('positions evaluated:', e.ev - e.tt)
     print('evaluations fetched:', e.tt)
