@@ -28,8 +28,7 @@ def test(fen, play = 0):
         move = e._select_move()
         print('selected %s [%.3fs]' % (e.board.san(move), time.time() - t0))
     print('nodes visited:', e.nodes)
-    print('positions evaluated:', e.ev - e.tt)
-    print('evaluations fetched:', e.tt)
+    print('positions evaluated: %s (%.1f%% fetched)' % (e.ev, 100*e.tt/e.ev))
 
 # Might want to add some more from here: https://www.chessprogramming.org/Test-Positions
 # Also: https://www.chessprogramming.org/Strategic_Test_Suite
