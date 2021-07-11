@@ -361,3 +361,22 @@ Rank Name                  Elo    +    - games score oppo. draws
 ---
 after fix, rechecking pruning margin
 120 vs 220: no noticable difference
+
+============================================================
+NOTE: Just implemented new time over handling - which is now much more accurate and works well for testing
+
+----
+f prune margin: 120 vs 200:
+
+Rank Name        Elo    +    - games score oppo. draws 
+   1 engine_f2     4   24   23   150   51%    -4   29% 
+   2 engine       -4   23   24   150   49%     4   29% 
+
+Rank Name                  Elo    +    - games score oppo. draws 
+   1 Cheese 2.2 [1000]    1898   37   35   250   79%  1655   11% 
+   2 engine               1674   28   28   375   53%  1647    7% 
+   3 engine_f2            1636   28   28   375   49%  1647    8% 
+   4 Stockfish 13 [1550]  1550   33   34   250   38%  1655    2% 
+   5 Arasan 22.3 [1300]   1491   33   34   250   30%  1655   10% 
+
+no noticable difference, so not changing atm
