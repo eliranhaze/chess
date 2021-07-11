@@ -5,15 +5,15 @@ from game import *
 # current engine version
 import engine
 e1 = engine.Engine()
-e1.MAX_ITER_DEPTH = 11
+e1.MAX_ITER_DEPTH = 12
 e1.book = 1
 ep1 = EnginePlayer(e1)
 ep1.name = e1.__module__
 
 # engine with some change
-import engine_see2 as engine_ver2
+import engine_dev as engine_ver2
 e2 = engine_ver2.Engine()
-e2.MAX_ITER_DEPTH = 11
+e2.MAX_ITER_DEPTH = 12
 e2.book = 1
 ep2 = EnginePlayer(e2)
 ep2.name = e2.__module__
@@ -23,8 +23,8 @@ ep2.name = e2.__module__
 
 # self play
 PGN_FILE = 'selfplay_%s.pgn' % datetime.now().strftime('%Y%m%d_%H%M%S')
-NUM_GAMES = 20
-TPM = .005
+NUM_GAMES = 200
+TPM = .2
 print('running %d games: %s vs %s [%.2fs tpm]' % (NUM_GAMES, ep1, ep2, TPM))
 
 gs = GameSeries(ep1, ep2, NUM_GAMES, TPM, PGN_FILE)
@@ -43,8 +43,8 @@ print('avg move times: e1 %.2f, e2 %.2f' % (e1.average_time(), e2.average_time()
 
 # gauntlet
 PGN_FILE = 'gauntlet_%s.pgn' % datetime.now().strftime('%Y%m%d_%H%M%S')
-NUM_GAMES = 2
-TPM = .1
+NUM_GAMES = 150
+TPM = .2
 
 import settings
 uci_engines = [
