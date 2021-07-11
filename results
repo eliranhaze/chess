@@ -342,3 +342,22 @@ Rank Name                  Elo    +    - games score oppo. draws
 NOTE: Just found out (July 8) that opening book was not used at all after the first game.... and most selfplay games had the same
 opening moves (with that weird ass 2.. Qf6), sometimes up to move 15... Now fixed this, and added wdl per opening to game series.
 So need to recheck some of the recent changes!!!! <- VERY IMPORTANT!!
+
+-----
+after fix, engine vs see2
+
+Rank Name          Elo    +    - games score oppo. draws 
+   1 engine          0   24   24   150   50%     0   25% 
+   2 engine_see2     0   24   24   150   50%     0   25% 
+
+Rank Name                  Elo    +    - games score oppo. draws 
+   1 engine               1713   29   28   300   68%  1564    7% 
+   2 engine_see2          1676   28   28   300   64%  1564    8% 
+   3 Arasan 22.3 [1300]   1578   27   28   300   35%  1694   14% 
+   4 Stockfish 13 [1550]  1550   29   30   300   34%  1694    1%
+
+- inconclusive, need more games, also use cheese
+
+---
+after fix, rechecking pruning margin
+120 vs 220: no noticable difference
