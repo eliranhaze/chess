@@ -186,6 +186,7 @@ class Engine(object):
         self.move_evals = []
         self.evals = {}
         self.top_moves = {}
+        self.killers = {}
         self.tp = {}
         self.p_hash = {}
         self.n_hash = {}
@@ -452,13 +453,17 @@ class Engine(object):
             victim = self.board.piece_type_at(move.to_square)
             if victim is None:
                 # en passant
-                victim_value = 1
+                victim_value = 1 # TODO: not 100??
             else:
                 victim_value = self.PIECE_VALUES[victim]
             attacker = self.board.piece_type_at(move.from_square)
             # use a large multiplication value to ensure good captures are sorted first
             # and bad captures later relative to quiet moves which use board evaluation
             return self.PIECE_VALUES[attacker] - (64 * victim_value)
+        if move == self.killers.get(self.ply):
+            # ensure that killers are after good captures (which will have -64*100 eval at least),
+            # but before quiet moves (not expected to have such a high eval), and bad captures (> 0 eval)
+            return -500
         return self._evaluate_move(move)
 
     def _gen_quiesce_moves(self): 
@@ -479,7 +484,7 @@ class Engine(object):
         victim = self.board.piece_type_at(move.to_square)
         if victim is None:
             # en passant
-            victim_value = 1
+            victim_value = 1 # TODO: not 100??
         else:
             victim_value = self.PIECE_VALUES[victim]
         attacker = self.board.piece_type_at(move.from_square)
@@ -526,7 +531,6 @@ class Engine(object):
             stand_pat = -self.MATE_SCORE
         else:
             stand_pat = self._evaluate_board()
-        self.nodes += 1
         # TODO: test with a margin here instead, e.g., maybe cutoff if we're at 198 and beta is 200... could 
         # speed things up without real loss, and the speed might be worth it
         if stand_pat >= beta:
@@ -591,8 +595,11 @@ class Engine(object):
 
     def _search_root(self, depth):
 
+        self.killers.clear()
+
         t0 = time.time()
         self.time_over = False
+        self.ply = 0
 
         board_hash = self._get_hash()
         best_move = None
@@ -608,7 +615,7 @@ class Engine(object):
             if self.PRINT:
                 print('evaluating move %s' % self.board.san(move))
             piece_from, piece_to = self._make_move(move)
-            value =  -self._negamax(depth - 1, -beta, -alpha)
+            value =  -self._negamax(depth - 1, 0, -beta, -alpha)
             self._unmake_move(move, piece_from, piece_to)
             if self.time_over:
                 break
@@ -654,11 +661,13 @@ class Engine(object):
             if move != top_move or move.promotion == chess.QUEEN or self._is_move_check(move):
                 yield move
 
-    def _negamax(self, depth, alpha, beta, can_null = True):
+    def _negamax(self, depth, ply, alpha, beta, can_null = True):
 
         if self._is_move_time_over():
             self.time_over = True
             return alpha
+
+        self.ply = ply
 
         orig_alpha = alpha
         board_hash = self._get_hash()
@@ -676,6 +685,7 @@ class Engine(object):
             else: # UPPER
                 beta = min(beta, val)
             if alpha >= beta:
+                self.killers[ply] = self.board.move_stack[-1]
                 return val
 
         if depth == 0:
@@ -688,7 +698,7 @@ class Engine(object):
         if can_null and depth > 2 and beta < self.INF and not self.endgame and not self.board.is_check():
             R = 2 if depth < 6 else 3
             self._make_move(chess.Move.null())
-            value = -self._negamax(depth - 1 - R, -beta, -beta + 1, False)
+            value = -self._negamax(depth - 1 - R, ply, -beta, -beta + 1, False)
             self._unmake_move(chess.Move.null(), None, None)
             if value >= beta:
                 return beta
@@ -707,7 +717,7 @@ class Engine(object):
         for move in gen_moves():
             move_count += 1
             piece_from, piece_to = self._make_move(move)
-            value = -self._negamax(depth - 1, -beta, -alpha)
+            value = -self._negamax(depth - 1, ply + 1, -beta, -alpha)
             self._unmake_move(move, piece_from, piece_to)
             if value > best_value:
                 best_value = value
@@ -716,6 +726,7 @@ class Engine(object):
                     alpha = value
                     if alpha >= beta:
                         # fail low: position is too good - opponent has an already searched way to avoid it.
+                        self.killers[ply] = move
                         break
 
         if move_count == 0 and not any(self.board.legal_moves):
@@ -1002,6 +1013,7 @@ class Engine(object):
         return self._hash
 
     def _make_move_default(self, move):
+        self.nodes += 1
         self.board.push(move)
         self._hash = None
         return None, None
