@@ -16,6 +16,20 @@ EXACT = 0
 LOWER = 1
 UPPER = 2
 
+WHITE = chess.WHITE
+BLACK = chess.BLACK
+
+PAWN = chess.PAWN
+KNIGHT = chess.KNIGHT
+BISHOP = chess.BISHOP
+ROOK = chess.ROOK
+QUEEN = chess.QUEEN
+KING = chess.KING
+
+BB_FILES = chess.BB_FILES
+NULL_MOVE = chess.Move.null()
+
+scan_forward = chess.scan_forward
 
 # NOTE: JUNE 30, 2021
 # Things to try next:
@@ -469,7 +483,7 @@ class Engine(object):
     def _gen_quiesce_moves(self): 
         qs_moves = [
             m for m in self.board.legal_moves
-            if self.board.is_capture(m) or m.promotion == chess.QUEEN or self._is_move_check(m)
+            if self.board.is_capture(m) or m.promotion == QUEEN or self._is_move_check(m)
         ]
         # NOTE: probing tt move here was not found to be of much help
         for move in sorted(qs_moves, key = self._mvv_lva_sort):
@@ -659,7 +673,7 @@ class Engine(object):
             yield top_move
         # only checks and promotions - no move ordering as there should be only a few moves
         for move in self.board.legal_moves:
-            if move != top_move or move.promotion == chess.QUEEN or self._is_move_check(move):
+            if move != top_move or move.promotion == QUEEN or self._is_move_check(move):
                 yield move
 
     def _negamax(self, depth, ply, alpha, beta, can_null = True):
@@ -699,9 +713,9 @@ class Engine(object):
         # null move pruning
         if can_null and depth > 2 and beta < self.INF and not self.endgame and not self.board.is_check():
             R = 2 if depth < 6 else 3
-            self._make_move(chess.Move.null())
+            self._make_move(NULL_MOVE)
             value = -self._negamax(depth - 1 - R, ply, -beta, -beta + 1, False)
-            self._unmake_move(chess.Move.null(), None, None)
+            self._unmake_move(NULL_MOVE, None, None)
             if value >= beta:
                 return beta
 
@@ -795,7 +809,7 @@ class Engine(object):
                 return 0
         
         # main evaluation
-        ev = self._piece_eval(chess.WHITE) - self._piece_eval(chess.BLACK)
+        ev = self._piece_eval(WHITE) - self._piece_eval(BLACK)
 
         # TODO: some more things to consider:
             # - double/passed/other pawn stuff
@@ -825,15 +839,15 @@ class Engine(object):
         if pawns in self.p_hash:
             p_val = self.p_hash[pawns]
         else:
-            p_val = self.PIECE_VALUES[chess.PAWN] * self._bb_count(pawns)
+            p_val = self.PIECE_VALUES[PAWN] * self._bb_count(pawns)
             if self.endgame:
-                for sq in chess.scan_forward(pawns):
+                for sq in scan_forward(pawns):
                     p_val += self.EG_PAWN_SQ_TABLE[color][sq]
             else:
-                for sq in chess.scan_forward(pawns):
+                for sq in scan_forward(pawns):
                     p_val += self.MG_PAWN_SQ_TABLE[color][sq]
             # check for double pawns
-            for fl in chess.BB_FILES:
+            for fl in BB_FILES:
                 p_count = self._bb_count(pawns & fl)
                 if p_count > 1:
                     p_val -= (p_count-1) * 15
@@ -842,8 +856,8 @@ class Engine(object):
         if knights in self.n_hash:
             n_val = self.n_hash[knights]
         else:
-            n_val = self.PIECE_VALUES[chess.KNIGHT] * self._bb_count(knights)
-            for i in chess.scan_forward(knights):
+            n_val = self.PIECE_VALUES[KNIGHT] * self._bb_count(knights)
+            for i in scan_forward(knights):
                 n_val += self.KNIGHT_ATTACK_TABLE[i] * self.SQUARE_VALUE
             self.n_hash[knights] = n_val
 
@@ -851,7 +865,7 @@ class Engine(object):
         if rooks in self.r_hash:
             r_val = self.r_hash[rooks]
         else:
-            r_val = self.PIECE_VALUES[chess.ROOK] * self._bb_count(rooks)
+            r_val = self.PIECE_VALUES[ROOK] * self._bb_count(rooks)
             self.r_hash[rooks] = r_val
 
         king_sq = (self.board.kings & o).bit_length() - 1
@@ -859,12 +873,12 @@ class Engine(object):
 
         e = p_val + n_val + r_val + kp_val
 
-        e += self.PIECE_VALUES[chess.BISHOP] * self._bb_count(bishops)
-        e += self.PIECE_VALUES[chess.QUEEN] * self._bb_count(queens)
+        e += self.PIECE_VALUES[BISHOP] * self._bb_count(bishops)
+        e += self.PIECE_VALUES[QUEEN] * self._bb_count(queens)
 
         # NOTE: optimized for pypy: for loops are faster than sum in pypy3 - in python3 it's the other way around
 
-        for i in chess.scan_forward(bishops | rooks | queens):
+        for i in scan_forward(bishops | rooks | queens):
             e += self._bb_count(self.board.attacks_mask(i)) * self.SQUARE_VALUE
 
         if self.endgame:
@@ -896,7 +910,7 @@ class Engine(object):
         kp_val = 15 if shield_center & pawns else -5
         kp_val += shield1_count * 20
         kp_val += shield2_count * 10
-        for f in chess.BB_FILES:
+        for f in BB_FILES:
             shield_file = f & (pawn_shields[0] | pawn_shields[1])
             if shield_file and not (pawns & shield_file):
                 # penalty for open file next to king
@@ -926,11 +940,11 @@ class Engine(object):
         rooks = self.board.rooks & o
         queens = self.board.queens & o
 
-        e = self.PIECE_VALUES[chess.PAWN] * self._bb_count(pawns)
-        e += self.PIECE_VALUES[chess.KNIGHT] * self._bb_count(knights)
-        e += self.PIECE_VALUES[chess.BISHOP] * self._bb_count(bishops)
-        e += self.PIECE_VALUES[chess.ROOK] * self._bb_count(rooks)
-        e += self.PIECE_VALUES[chess.QUEEN] * self._bb_count(queens)
+        e = self.PIECE_VALUES[PAWN] * self._bb_count(pawns)
+        e += self.PIECE_VALUES[KNIGHT] * self._bb_count(knights)
+        e += self.PIECE_VALUES[BISHOP] * self._bb_count(bishops)
+        e += self.PIECE_VALUES[ROOK] * self._bb_count(rooks)
+        e += self.PIECE_VALUES[QUEEN] * self._bb_count(queens)
 
         return e
 
@@ -941,14 +955,14 @@ class Engine(object):
         opponent = not self.board.turn
         o = self.board.occupied_co[opponent]
         if self.board.queens & o:
-            return self.PIECE_VALUES[chess.QUEEN]
+            return self.PIECE_VALUES[QUEEN]
         if self.board.rooks & o:
-            return self.PIECE_VALUES[chess.ROOK]
+            return self.PIECE_VALUES[ROOK]
         if self.board.bishops & o:
-            return self.PIECE_VALUES[chess.BISHOP]
+            return self.PIECE_VALUES[BISHOP]
         if self.board.knights & o:
-            return self.PIECE_VALUES[chess.KNIGHT]
-        return self.PIECE_VALUES[chess.PAWN]
+            return self.PIECE_VALUES[KNIGHT]
+        return self.PIECE_VALUES[PAWN]
 
     def _is_hanging(self, color, piece):
         attackers = self.board.attackers(not color, piece)
