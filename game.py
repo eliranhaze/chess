@@ -192,8 +192,8 @@ class GameSeries(object):
 
     def report(self):
         print(self.score_string())
-        for o, wdl in self.wdl_by_opening.items():
-            print('%s: %s' % (self._opening_string(o), self._score_string(wdl)), flush=True)
+        #for o, wdl in self.wdl_by_opening.items():
+        #    print('%s: %s' % (self._opening_string(o), self._score_string(wdl)), flush=True)
 
     def score_string(self):
         return self._score_string((self.wins, self.draws, self.losses))
