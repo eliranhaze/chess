@@ -200,7 +200,7 @@ class Engine(object):
         self.move_evals = []
         self.evals = {}
         self.top_moves = {}
-        self.killers = {}
+        self.killers = []
         self.tp = {}
         self.p_hash = {}
         self.n_hash = {}
@@ -474,7 +474,7 @@ class Engine(object):
             # use a large multiplication value to ensure good captures are sorted first
             # and bad captures later relative to quiet moves which use board evaluation
             return self.PIECE_VALUES[attacker] - (64 * victim_value)
-        if move == self.killers.get(self.ply):
+        if move == self.killers[self.ply]:
             # ensure that killers are after good captures (which will have -64*100 eval at least),
             # but before quiet moves (not expected to have such a high eval), and bad captures (> 0 eval)
             return -500
@@ -610,7 +610,7 @@ class Engine(object):
 
     def _search_root(self, depth):
 
-        self.killers.clear()
+        self.killers = [None] * 12
 
         t0 = time.time()
         self.time_over = False
