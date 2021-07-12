@@ -527,7 +527,6 @@ class Engine(object):
             stand_pat = -self.MATE_SCORE
         else:
             stand_pat = self._evaluate_board()
-        self.nodes += 1
         # TODO: test with a margin here instead, e.g., maybe cutoff if we're at 198 and beta is 200... could 
         # speed things up without real loss, and the speed might be worth it
         if stand_pat >= beta:
@@ -1004,6 +1003,7 @@ class Engine(object):
         return self._hash
 
     def _make_move_default(self, move):
+        self.nodes += 1
         self.board.push(move)
         self._hash = None
         return None, None
