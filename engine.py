@@ -509,7 +509,8 @@ class Engine(object):
             if entry_type == EXACT and alpha < val < beta:
                 return val
             if entry_type == LOWER:
-                alpha = max(alpha, val)
+                if val > alpha:
+                    alpha = val
             else: # UPPER
                 beta = min(beta, val)
             if alpha >= beta:
@@ -617,8 +618,8 @@ class Engine(object):
                 best_value = value
                 best_move = move
                 self.top_moves[board_hash] = best_move
-            # NOTE: max might run slightly slower than a simple if test (as checked in ipy) - check this
-            alpha = max(alpha, value)
+            if value > alpha:
+                alpha = value
 
             if self.PRINT:
                 print('... %d nodes evaluated (%.4fs)' % (self.nodes - prev_nodes, time.time()-t1))
@@ -672,7 +673,8 @@ class Engine(object):
             if entry_type == EXACT:
                 return val
             if entry_type == LOWER:
-                alpha = max(alpha, val)
+                if val > alpha:
+                    alpha = val
             else: # UPPER
                 beta = min(beta, val)
             if alpha >= beta:
