@@ -467,13 +467,13 @@ class Engine(object):
             victim = self.board.piece_type_at(move.to_square)
             if victim is None:
                 # en passant
-                victim_value = 1 # TODO: not 100??
+                victim = PAWN
+                attacker = PAWN
             else:
-                victim_value = self.PIECE_VALUES[victim]
-            attacker = self.board.piece_type_at(move.from_square)
+                attacker = self.board.piece_type_at(move.from_square)
             # use a large multiplication value to ensure good captures are sorted first
             # and bad captures later relative to quiet moves which use board evaluation
-            return self.PIECE_VALUES[attacker] - (64 * victim_value)
+            return self.PIECE_VALUES[attacker] - (64 * self.PIECE_VALUES[victim])
         if move == self.killers[self.ply]:
             # ensure that killers are after good captures (which will have -64*100 eval at least),
             # but before quiet moves (not expected to have such a high eval), and bad captures (> 0 eval)
@@ -498,15 +498,15 @@ class Engine(object):
         victim = self.board.piece_type_at(move.to_square)
         if victim is None:
             # en passant
-            victim_value = 1 # TODO: not 100??
+            victim = PAWN
+            attacker = PAWN
         else:
-            victim_value = self.PIECE_VALUES[victim]
-        attacker = self.board.piece_type_at(move.from_square)
+            attacker = self.board.piece_type_at(move.from_square)
         # the following is supposed to be better than a simple subtraction, the idea being
         # that we sort by most valuable victim first, and by least vaulable attacker second
         # - it does seem to be a bit faster in tests
         # see: http://talkchess.com/forum3/viewtopic.php?t=30135#p296386
-        return self.PIECE_VALUES[attacker] - (16 * victim_value)
+        return self.PIECE_VALUES[attacker] - (16 * self.PIECE_VALUES[victim])
 
     def _quiesce(self, alpha, beta): # TODO: also figure out how to time-limit
 
