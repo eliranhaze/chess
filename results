@@ -380,3 +380,51 @@ Rank Name                  Elo    +    - games score oppo. draws
    5 Arasan 22.3 [1300]   1491   33   34   250   30%  1655   10% 
 
 no noticable difference, so not changing atm
+
+-------------
+killer moves
+
+running 200 games: engine vs engine_dev [0.20s tpm]
++79 =48 -73
+avg move depths: e1 5.22, e2 5.23
+avg move times: e1 0.20, e2 0.20
+running 150 games: engine vs Stockfish 13 [1550] [0.20s tpm]
++105 =2 -43
+avg move depths: 4.81
+avg move times: 0.20
+running 150 games: engine vs Cheese 2.2 [1000] [0.20s tpm]
++32 =18 -100
+avg move depths: 4.84
+avg move times: 0.20
+running 150 games: engine vs Arasan 22.3 [1300] [0.20s tpm]
++101 =9 -40
+avg move depths: 4.76
+avg move times: 0.20
+running 150 games: engine_dev vs Stockfish 13 [1550] [0.20s tpm]
++102 =3 -45
+avg move depths: 4.85
+avg move times: 0.20
+running 150 games: engine_dev vs Cheese 2.2 [1000] [0.20s tpm]
++28 =15 -107
+avg move depths: 4.82
+avg move times: 0.20
+running 150 games: engine_dev vs Arasan 22.3 [1300] [0.20s tpm]
++60 =16 -24
+
+- inconclusive... maybe even slightly worse - not sure why
+
+-----------
+killer moves, faster array implementation
+
+Rank Name         Elo    +    - games score oppo. draws 
+   1 engine_dev     7   20   20   200   52%    -7   35% 
+   2 engine        -7   20   20   200   48%     7   35% 
+
+Rank Name                  Elo    +    - games score oppo. draws 
+   1 Cheese 2.2 [1000]    1902   28   27   400   76%  1695   14% 
+   2 engine               1704   22   22   600   55%  1657   10% 
+   3 engine_dev           1686   22   22   600   53%  1657    9% 
+   4 Stockfish 13 [1550]  1550   27   27   400   33%  1695    4% 
+   5 Arasan 22.3 [1300]   1519   26   27   400   28%  1695   11% 
+
+- seem to be about the same... think i will commit changes anyway, just to have this implemented

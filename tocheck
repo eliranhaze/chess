@@ -5,25 +5,23 @@ currently:
 	  early enough?
 [v] currently testing again the checkmates issue with a fix of the original bug (engine3) and a fix of a second bug (engine3_1) - see more notes in results file
 	- 3_1 version does work and is better
-[_] was checking SEE (engine_see2) implementation - seemed a bit better but got disconnected - check again at least 200 games per engine
-	- see3 contains a correct version with xrays
-	- see4 is like see3 but with speedup
+[v] killer moves
+[x] retry that max sorting - more simply
+	- no luck so far
+[x] 200 delta pruning?
+	- no significant differnece
+[x] SEE in regular move ordering - salvage negative mvv captures that have >0 SEE
+	- didn't seem promising
+[_] SEE - currently running
+[_] history heuristic ordering - implemented (engine_history2) and waiting to run
+[_] -500 vs -10000 killer value
+	- -10000 was found to result in more prunning, but was somehow a bit slower - so check actual games
+[_] kp val - remember that this was found to be worse than without - recheck
 
-[_] BETTER TIME LIMIT IMPLEMENTATION -- FOR MORE ACCURATE TESTING!! at negamax and qsearch levels
-[_] Itergate pgn output / ordo elo calculation for testing
-- killer moves - in both engine4.py and engine5.py - correct implementation is engine5.py (with plies)
-	- see http://talkchess.com/forum3/viewtopic.php?t=46886&start=10#p503361 on how to implement (other
-	  comments also helpful in that thread) - currently implementing only 1 killer move, but it was said
-	  that 2 is crucial
-- kp val - remember that this was found to be worse than without - recheck
-
-optimizations:
-- INF different value
-- move.promotion == queen
-- fut prune
-
-concepts:
-- killer move
-- pruning bad moves in qs according to see
-- simple syzygy
+next:
+- countermove history
+- LMR
+- syzygy tb
 	- see http://talkchess.com/forum3/viewtopic.php?t=64767 on how to use in search
+	- see also ethereal implementation
+
