@@ -27,17 +27,19 @@ class Player(object):
 
 class UCIEnginePlayer(Player):
 
-    def __init__(self, name, path, elo = None, *args, **kwargs):
+    def __init__(self, name, path, elo = None, move_time_ratio = 1, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.engine = chess.engine.SimpleEngine.popen_uci(path)
         self.elo = elo
+        self.move_time_ratio = move_time_ratio
         if elo:
             self.engine.configure({'UCI_LimitStrength':True})
             self.engine.configure({'UCI_Elo':elo})
         self.name = name + (' [%d]' % self.elo if self.elo else '')
 
     def move(self):
-        play_result = self.engine.play(board = self.board, limit = chess.engine.Limit(time=self.move_time))
+        move_time = self.move_time * self.move_time_ratio
+        play_result = self.engine.play(board = self.board, limit = chess.engine.Limit(time=move_time))
         if play_result.resigned:
             self.resigned = True
         return play_result.move

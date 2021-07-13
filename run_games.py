@@ -36,19 +36,14 @@ gs.report()
 print('avg move depths: e1 %.2f, e2 %.2f' % (e1.average_depth(), e2.average_depth()))
 print('avg move times: e1 %.2f, e2 %.2f' % (e1.average_time(), e2.average_time()))
 
-# TODO: calc average move time in Game for each player and get the number from there,
-# also average depth - either see if can be gotten from uci, or just have a default 1
-# for uci engines... and then the code duplication here can be removed!
-# NOTE: I do want to have average time for uci engines, because playing vs cheese seems to take longer for some reason...
-
 # gauntlet
 PGN_FILE = 'gauntlet_%s.pgn' % datetime.now().strftime('%Y%m%d_%H%M%S')
-NUM_GAMES = 150
+NUM_GAMES = 200
 TPM = .2
 
 import settings
 uci_engines = [
-    UCIEnginePlayer(name = name, path = v['path'], elo = v['elo'])
+    UCIEnginePlayer(name = name, path = v['path'], elo = v['elo'], move_time_ratio = v['time_ratio'])
     for name, v in settings.uci_engines.items()
 ]
 for ep in (ep1,ep2):
