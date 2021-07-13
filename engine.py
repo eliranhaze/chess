@@ -29,6 +29,17 @@ KING = chess.KING
 BB_FILES = chess.BB_FILES
 NULL_MOVE = chess.Move.null()
 
+BB_RANK_MASKS = chess.BB_RANK_MASKS
+BB_FILE_MASKS = chess.BB_FILE_MASKS
+BB_DIAG_MASKS = chess.BB_DIAG_MASKS
+
+BB_RANK_ATTACKS = chess.BB_RANK_ATTACKS
+BB_FILE_ATTACKS = chess.BB_FILE_ATTACKS
+BB_DIAG_ATTACKS = chess.BB_DIAG_ATTACKS
+BB_KING_ATTACKS = chess.BB_KING_ATTACKS
+BB_KNIGHT_ATTACKS = chess.BB_KNIGHT_ATTACKS
+BB_PAWN_ATTACKS = chess.BB_PAWN_ATTACKS
+
 scan_forward = chess.scan_forward
 
 # NOTE: JUNE 30, 2021
@@ -480,14 +491,24 @@ class Engine(object):
             return -500
         return self._evaluate_move(move)
 
-    def _gen_quiesce_moves(self): 
+    def _gen_quiesce_moves(self):
         qs_moves = [
             m for m in self.board.legal_moves
-            if self.board.is_capture(m) or m.promotion == QUEEN or self._is_move_check(m)
+            if (self.board.is_capture(m) and not self._skip_qs_move(m)) or m.promotion == QUEEN or self._is_move_check(m)
         ]
         # NOTE: probing tt move here was not found to be of much help
         for move in sorted(qs_moves, key = self._mvv_lva_sort):
             yield move
+
+    def _skip_qs_move(self, move):
+        return self._is_losing_capture(move) and self._static_exchange_evaluation(move) < 0
+
+    def _is_losing_capture(self, move):
+        victim = self.board.piece_type_at(move.to_square)
+        if victim is None:
+            return False
+        attacker = self.board.piece_type_at(move.from_square)
+        return self.PIECE_VALUES[attacker] > self.PIECE_VALUES[victim]
 
     def _mvv_lva_sort(self, move):
         if move.promotion:
@@ -769,7 +790,96 @@ class Engine(object):
         return alpha
 
     def _static_exchange_evaluation(self, move):
-        pass
+        target = self.board.piece_type_at(move.to_square)
+        if not target:
+            # en passant
+            return 0
+        attacker = self.board.piece_type_at(move.from_square)
+        gain = []
+        d = 0
+        mayxray = self.board.bishops | self.board.rooks | self.board.queens
+        fromset = 1 << move.from_square
+        occ = self.board.occupied
+        attadef = self._attackers_mask(move.to_square)
+        gain.append(self.PIECE_VALUES[target])
+        while 1:
+            d += 1
+            gain.append(self.PIECE_VALUES[attacker] - gain[d-1])
+            if max(gain[d], -gain[d-1]) < 0:
+                break
+            attadef ^= fromset # remove current attacker from att&def mask
+            occ ^= fromset
+            if fromset & mayxray:
+                attadef |= self._attackers_xray(move.to_square, occ)
+            # get least valuable attacker
+            fromset, attacker = self._least_valuable_attacker(attadef, not (self.board.occupied_co[1] & fromset))
+            if not fromset:
+                break
+        d -= 1
+        while d:
+            gain[d-1] = -max(-gain[d-1], gain[d])
+            d -= 1
+        return gain[0]
+
+    def _attackers_mask(self, square):
+        rank_pieces = BB_RANK_MASKS[square] & self.board.occupied
+        file_pieces = BB_FILE_MASKS[square] & self.board.occupied
+        diag_pieces = BB_DIAG_MASKS[square] & self.board.occupied
+
+        queens_and_rooks = self.board.queens | self.board.rooks
+        queens_and_bishops = self.board.queens | self.board.bishops
+
+        attackers = (
+            (BB_KING_ATTACKS[square] & self.board.kings) |
+            (BB_KNIGHT_ATTACKS[square] & self.board.knights) |
+            (BB_RANK_ATTACKS[square][rank_pieces] & queens_and_rooks) |
+            (BB_FILE_ATTACKS[square][file_pieces] & queens_and_rooks) |
+            (BB_DIAG_ATTACKS[square][diag_pieces] & queens_and_bishops) |
+            (BB_PAWN_ATTACKS[True][square] & self.board.pawns & self.board.occupied_co[False]) |
+            (BB_PAWN_ATTACKS[False][square] & self.board.pawns & self.board.occupied_co[True]))
+
+        return attackers
+
+    def _least_valuable_attacker(self, attadef, color):
+        o = self.board.occupied_co[color]
+        subset = self.board.pawns & attadef & o
+        if subset:
+            return subset & -subset, PAWN
+        subset = self.board.knights & attadef & o
+        if subset:
+            return subset & -subset, KNIGHT
+        subset = self.board.bishops & attadef & o
+        if subset:
+            return subset & -subset, BISHOP
+        subset = self.board.rooks & attadef & o
+        if subset:
+            return subset & -subset, ROOK
+        subset = self.board.queens & attadef & o
+        if subset:
+            return subset & -subset, QUEEN
+        subset = self.board.kings & attadef & o
+        if subset:
+            return subset & -subset, KING
+        return 0, None
+
+    def _attackers_xray(self, square, occupied):
+        rank_pieces = BB_RANK_MASKS[square] & occupied
+        file_pieces = BB_FILE_MASKS[square] & occupied
+        diag_pieces = BB_DIAG_MASKS[square] & occupied
+
+        rooks = self.board.rooks & occupied
+        bishops = self.board.bishops & occupied
+        queens = self.board.queens & occupied
+
+        queens_and_rooks = queens | rooks
+        queens_and_bishops = queens | bishops
+
+        attackers = (
+            (BB_RANK_ATTACKS[square][rank_pieces] & queens_and_rooks) |
+            (BB_FILE_ATTACKS[square][file_pieces] & queens_and_rooks) |
+            (BB_DIAG_ATTACKS[square][diag_pieces] & queens_and_bishops))
+
+        return attackers
 
     def _table_maintenance(self):
         limits = {
