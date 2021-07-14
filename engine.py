@@ -206,6 +206,10 @@ class Engine(object):
         self.n_hash = {}
         self.r_hash = {}
         self.kp_hash = {}
+        self.all_moves = 0
+        self.used_moves = 0
+        self.q_all_moves = 0
+        self.q_used_moves = 0
         self.move_hits = 0
         self.top_hits = 0
         self.tt = 0
@@ -456,9 +460,13 @@ class Engine(object):
         top_move = self.top_moves.get(board_hash)
         if top_move:
             self.top_hits += 1
+            self.used_moves += 1
             yield top_move
-        for move in sorted(self.board.legal_moves, key = self._move_sortkey):
+        moves = sorted(self.board.legal_moves, key = self._move_sortkey)
+        self.all_moves += len(moves)
+        for move in moves:
             if move != top_move: # don't re-search top move
+                self.used_moves += 1
                 yield move
 
     def _move_sortkey(self, move):
@@ -486,7 +494,9 @@ class Engine(object):
             if self.board.is_capture(m) or m.promotion == QUEEN or self._is_move_check(m)
         ]
         # NOTE: probing tt move here was not found to be of much help
+        self.q_all_moves += len(qs_moves)
         for move in sorted(qs_moves, key = self._mvv_lva_sort):
+            self.q_used_moves += 1
             yield move
 
     def _mvv_lva_sort(self, move):
