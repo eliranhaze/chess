@@ -46,9 +46,9 @@ uci_engines = [
     UCIEnginePlayer(name = name, path = v['path'], elo = v['elo'], move_time_ratio = v['time_ratio'])
     for name, v in settings.uci_engines.items()
 ]
-for ep in (ep1,ep2):
 
-    for uci_engine in uci_engines:
+for uci_engine in uci_engines:
+    for ep in (ep1,ep2):
         print('running %d games: %s vs %s [%.2fs tpm]' % (NUM_GAMES, ep, uci_engine, TPM))
 
         gs = GameSeries(ep, uci_engine, NUM_GAMES, TPM, PGN_FILE)
