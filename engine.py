@@ -1,6 +1,7 @@
 import chess
 import chess.polyglot
 import chess.svg
+import chess.syzygy
 import gc
 import random
 import time
@@ -56,6 +57,11 @@ class Engine(object):
     ENDGAME_DEPTH = DEPTH + 2
     MOVE_TIME_LIMIT = 1
 
+    TB_DIR = '/Users/eliran/Downloads/torrents/syzygy/'
+    TB_PIECE_COUNT = 5
+    TB_WIN = 2
+    TB_LOSS = -2
+
     TT_SIZE = 4e6 # 4e6 seems to cap around 2G - a bit more with iterative deepening
     Z_HASHING = False
 
@@ -64,6 +70,8 @@ class Engine(object):
 
     PIECE_VALUES = [-1, 100, 320, 330, 500, 900, 20000] # none, pawn, knight, bishop, rook, queen, king - list for efficiency
     MATE_SCORE = 99900
+    TB_WIN_SCORE = MATE_SCORE - 1
+    TB_LOSS_SCORE = -TB_WIN_SCORE
     INF = MATE_SCORE + 1
 
     # rank just before promotion, for either side - for checking for promotion moves
@@ -195,8 +203,10 @@ class Engine(object):
         self.board = board if board else chess.Board()
         self.book = self.BOOK
         self.endgame = False
+        self.tbpos = 0
         self.resigned = False
         self._hash = None
+        self.tbase = None
         self.move_evals = []
         self.evals = {}
         self.top_moves = {}
@@ -291,6 +301,8 @@ class Engine(object):
         mat_cutoff = -self.PIECE_VALUES[chess.QUEEN]
         if mat_diff < mat_cutoff:
             num_evals = 2
+        elif self.TB_LOSS_SCORE == self.move_evals[-1]:
+            num_evals = 10
         else:
             num_evals = 3
         resign_cutoff = -(self.PIECE_VALUES[chess.QUEEN] + 2 * self.PIECE_VALUES[chess.PAWN])
@@ -384,6 +396,14 @@ class Engine(object):
         self.book = False
 
     def _iterative_deepening(self):
+
+        self.wonpos = 0
+        if self._bb_count(self.board.occupied) <= self.TB_PIECE_COUNT:
+            self.tbpos = 1
+            wdl = self._probe_tb_wdl()
+            if wdl == self.TB_WIN:
+                self.wonpos = 1
+
         t0 = time.time()
         self._check_endgame()
         self._table_maintenance()
@@ -394,7 +414,7 @@ class Engine(object):
             if depth_best_move is not None:
                 # may be None if timed out
                 best_move, move_eval = depth_best_move, depth_best_eval
-            if abs(move_eval) == self.MATE_SCORE or self._is_move_time_over():
+            if abs(move_eval) == self.MATE_SCORE or abs(move_eval) == self.TB_WIN_SCORE or self._is_move_time_over():
                 break
         self.depth_record.append(depth)
 
@@ -610,7 +630,7 @@ class Engine(object):
 
     def _search_root(self, depth):
 
-        self.killers = [None] * 12
+        self.killers = [None] * (self.MAX_ITER_DEPTH + 1)
 
         t0 = time.time()
         self.time_over = False
@@ -625,7 +645,17 @@ class Engine(object):
 
         prev_nodes = self.nodes
 
-        for move in self._gen_moves():
+        gen_moves = self._gen_moves
+        # we probe tb at the root and filter non-optimal moves, then we do a search on those moves
+        # see comment here: http://talkchess.com/forum3/viewtopic.php?f=7&t=60906&start=10#p680052
+        if self.tbpos or self._bb_count(self.board.occupied) <= self.TB_PIECE_COUNT:
+            self.tbpos = 1
+            tb_vals = {m: self._tb_val(m) for m in self.board.legal_moves}
+            max_tb_value = max(tb_vals.values())
+            moves = [m for m, v in tb_vals.items() if v == max_tb_value]
+            gen_moves = lambda: moves
+
+        for move in gen_moves():
             t1 = time.time()
             if self.PRINT:
                 print('evaluating move %s' % self.board.san(move))
@@ -676,6 +706,28 @@ class Engine(object):
             if move != top_move or move.promotion == QUEEN or self._is_move_check(move):
                 yield move
 
+    def _probe_tb(self):
+        if self.tbase is None:
+            self.tbase = chess.syzygy.open_tablebase(self.TB_DIR)
+        tb_result = self.tbase.probe_wdl(self.board)
+        if tb_result == self.TB_WIN:
+            return self.TB_WIN_SCORE
+        if tb_result == self.TB_LOSS:
+            return self.TB_LOSS_SCORE
+        # draw
+        return 0
+
+    def _probe_tb_wdl(self):
+        if self.tbase is None:
+            self.tbase = chess.syzygy.open_tablebase(self.TB_DIR)
+        return self.tbase.probe_wdl(self.board)
+
+    def _tb_val(self, move):
+        self.board.push(move)
+        tb_val = 0 if self.board.is_repetition(count = 3) else -self._probe_tb_wdl()
+        self.board.pop()
+        return tb_val
+
     def _negamax(self, depth, ply, alpha, beta, can_null = True):
 
         if self._is_move_time_over():
@@ -706,6 +758,9 @@ class Engine(object):
 
         if depth == 0:
             return self._quiesce(alpha, beta)
+
+        if self.tbpos and not self.wonpos and self._bb_count(self.board.occupied) <= self.TB_PIECE_COUNT:
+            return self._probe_tb()
 
         value = -self.INF
         best_value = -self.INF
