@@ -212,6 +212,7 @@ class Engine(object):
         self.evals = {}
         self.top_moves = {}
         self.killers = []
+        self.history = [[[0]*64]*64,[[0]*64]*64]
         self.tp = {}
         self.p_hash = {}
         self.n_hash = {}
@@ -497,7 +498,7 @@ class Engine(object):
             # ensure that killers are after good captures (which will have -64*100 eval at least),
             # but before quiet moves (not expected to have such a high eval), and bad captures (> 0 eval)
             return -500
-        return self._evaluate_move(move)
+        return -self.history[self.board.turn][move.from_square][move.to_square]
 
     def _gen_quiesce_moves(self):
         qs_moves = [
@@ -642,6 +643,10 @@ class Engine(object):
     def _search_root(self, depth):
 
         self.killers = [None] * 12
+        for side in range(2):
+            for sfrom in range(64):
+                for sto in range(64):
+                    self.history[side][sfrom][sto] /= 2
 
         t0 = time.time()
         self.time_over = False
@@ -732,7 +737,9 @@ class Engine(object):
             else: # UPPER
                 beta = min(beta, val)
             if alpha >= beta:
-                self.killers[ply] = self.board.move_stack[-1]
+                move = self.board.move_stack[-1]
+                self.killers[ply] = move
+                self.history[self.board.turn][move.from_square][move.to_square] += depth*depth
                 return val
 
         if depth == 0:
@@ -774,6 +781,7 @@ class Engine(object):
                     if alpha >= beta:
                         # fail low: position is too good - opponent has an already searched way to avoid it.
                         self.killers[ply] = move
+                        self.history[self.board.turn][move.from_square][move.to_square] += depth*depth
                         break
 
         if move_count == 0 and not any(self.board.legal_moves):
@@ -906,12 +914,6 @@ class Engine(object):
             if len(table) > limit:
                 table.clear()
                 gc.collect()
-
-    def _evaluate_move(self, move):
-        piece_from, piece_to = self._make_move(move)
-        e = self._evaluate_board()
-        self._unmake_move(move, piece_from, piece_to)
-        return e
 
     def _evaluate_board(self):
 
