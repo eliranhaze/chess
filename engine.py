@@ -212,7 +212,13 @@ class Engine(object):
         self.evals = {}
         self.top_moves = {}
         self.killers = []
-        self.history = [[[0]*64]*64,[[0]*64]*64]
+        self.history = []
+        for i in range(2):
+            self.history.append([])
+            for j in range(64):
+                self.history[i].append([])
+                for k in range(64):
+                    self.history[i][j].append(0)
         self.tp = {}
         self.p_hash = {}
         self.n_hash = {}
@@ -255,10 +261,6 @@ class Engine(object):
         self.board = chess.Board(fen)
 
     def average_depth(self):
-        # TODO:
-        # need to add average move time as well to make sure not too much time is spent exceeding limit...
-        # to make sure changes are not winning just because of extra QS.
-        # perhaps have one structure for history of evals, depth, and time per move
         return sum(self.depth_record) / len(self.depth_record)
 
     def average_time(self):
@@ -495,8 +497,8 @@ class Engine(object):
             # and bad captures later relative to quiet moves which use board evaluation
             return self.PIECE_VALUES[attacker] - (64 * self.PIECE_VALUES[victim])
         if move == self.killers[self.ply]:
-            # ensure that killers are after good captures (which will have -64*100 eval at least),
-            # but before quiet moves (not expected to have such a high eval), and bad captures (> 0 eval)
+            # ensures that killers are after all captures (which due to the above all have large negative values
+            # but before quiet moves
             return -500
         return -self.history[self.board.turn][move.from_square][move.to_square]
 
