@@ -12,10 +12,12 @@ currently:
 	- no significant differnece
 [x] SEE in regular move ordering - salvage negative mvv captures that have >0 SEE
 	- didn't seem promising
-[_] SEE - currently running
+[v] SEE - currently running
+	- was about the same, committing anyway
 [_] history heuristic ordering - implemented (engine_history2) and waiting to run
-[_] -500 vs -10000 killer value
+[x] -500 vs -10000 killer value
 	- -10000 was found to result in more prunning, but was somehow a bit slower - so check actual games
+	- was slightly worse in testing
 [_] kp val - remember that this was found to be worse than without - recheck
 
 next:

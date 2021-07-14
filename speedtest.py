@@ -19,10 +19,14 @@ e.BOOK = 0
 
 total_nodes = 0
 total_time = 0
+total_all_moves = 0
+total_used_moves = 0
 
 def test(fen, play = 0):
     global total_nodes
     global total_time
+    global total_all_moves
+    global total_used_moves
     e.set_fen(fen)
     t0 = time.time()
     for _ in range(play):
@@ -35,9 +39,14 @@ def test(fen, play = 0):
     t = time.time() - t0
     total_nodes += e.nodes
     total_time += t
+    total_all_moves += e.all_moves
+    total_used_moves += e.used_moves
     knps = e.nodes / t / 1000
     print('nodes:', e.nodes, '[%.1fk nps]' % knps)
     print('evals: %s (%.0f%% fetched)' % (e.ev, 100*e.tt/e.ev))
+    print('moves: %d [%.0f%% cutoff], q moves: %d [%.0f%% cutoff]' %
+            (e.used_moves, 100*(e.all_moves-e.used_moves)/e.all_moves,
+                e.q_used_moves, 100*(e.q_all_moves-e.q_used_moves)/e.q_all_moves))
 
 # Might want to add some more from here: https://www.chessprogramming.org/Test-Positions
 # Also: https://www.chessprogramming.org/Strategic_Test_Suite
@@ -83,3 +92,6 @@ test('2r3k1/5ppp/5b2/8/7Q/5N2/3R1PPP/6K1 b - - 0 1', play = 4)
 
 print('---------')
 print('total nodes:', total_nodes, '[%.1fk nps]' % (total_nodes / total_time / 1000))
+print('total moves: %d [%.0f%% cutoff]' %
+        (total_used_moves, 100*(total_all_moves-total_used_moves)/total_all_moves))
+
