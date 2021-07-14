@@ -644,7 +644,7 @@ class Engine(object):
 
     def _search_root(self, depth):
 
-        self.killers = [None] * 12
+        self.killers = [None] * (self.MAX_ITER_DEPTH + 1)
         for side in range(2):
             for sfrom in range(64):
                 for sto in range(64):
