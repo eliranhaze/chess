@@ -527,7 +527,7 @@ class Engine(object):
 
     def _mvv_lva_sort(self, move):
         if move.promotion:
-            return -self.PIECE_VALUES[move.promotion]
+            return -8 * self.PIECE_VALUES[move.promotion]
         if not self.board.is_capture(move):
             # check move
             return 0
