@@ -484,6 +484,8 @@ class Engine(object):
                 yield move
 
     def _move_sortkey(self, move):
+        if move.promotion:
+            return -2 * self.PIECE_VALUES[QUEEN]
         if self.board.is_capture(move):
             # use mvv/lva score for captures
             victim = self.board.piece_type_at(move.to_square)
