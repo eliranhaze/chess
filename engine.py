@@ -32,6 +32,8 @@ NULL_MOVE = chess.Move.null()
 BB_RANK_MASKS = chess.BB_RANK_MASKS
 BB_FILE_MASKS = chess.BB_FILE_MASKS
 BB_DIAG_MASKS = chess.BB_DIAG_MASKS
+BB_RANK_2 = chess.BB_RANK_2
+BB_RANK_7 = chess.BB_RANK_7
 
 BB_RANK_ATTACKS = chess.BB_RANK_ATTACKS
 BB_FILE_ATTACKS = chess.BB_FILE_ATTACKS
@@ -76,9 +78,6 @@ class Engine(object):
     PIECE_VALUES = [-1, 100, 320, 330, 500, 900, 20000] # none, pawn, knight, bishop, rook, queen, king - list for efficiency
     MATE_SCORE = 99900
     INF = MATE_SCORE + 1
-
-    # rank just before promotion, for either side - for checking for promotion moves
-    PROMOTION_BORDER = [chess.BB_RANK_2, chess.BB_RANK_7]
 
     KING_SHELTER_SQUARES = [(56,57,58,62,63),(0,1,2,6,7)]
     PAWN_SHIELD_MASKS = {
@@ -595,11 +594,14 @@ class Engine(object):
         # NOTE: wiki suggests turning delta pruning off during endgame
         delta = self._max_opponent_piece_value()
         # check if any move might be promoting
-        if self.board.pawns & self.board.occupied_co[self.board.turn] & self.PROMOTION_BORDER[self.board.turn]:
-            # TODO: should also check if not piece is block (otherwise it's not really a potential promotion)
-            # also test values other than 2 here (maybe a bit lower as in CPW)
-            delta *= 2 # TODO: this should be += queen value... because max opp could be e.g. knight
-        if stand_pat + delta < alpha: # promotions might have to be considered as well - we might promote and capture queen
+        pawns = self.board.pawns & self.board.occupied_co[self.board.turn]
+        if pawns:
+            if self.board.turn and (pawns & BB_RANK_7 & (pawns << 8 & ~self.board.occupied)):
+                delta += (self.PIECE_VALUES[QUEEN] - self.PIECE_VALUES[PAWN])
+            elif not self.board.turn and (pawns & BB_RANK_2 & (pawns >> 8 & ~self.board.occupied)):
+                delta += (self.PIECE_VALUES[QUEEN] - self.PIECE_VALUES[PAWN])
+
+        if stand_pat + delta < alpha: 
             # can't raise alpha - saves quite some time
             return alpha
         
