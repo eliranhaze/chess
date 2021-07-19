@@ -872,8 +872,25 @@ class Engine(object):
         move_count = 0
         for move in gen_moves():
             move_count += 1
-            piece_from, piece_to = self._make_move(move)
-            value = -self._negamax(depth - 1, ply + 1, -beta, -alpha)
+
+            self.ply = ply
+
+            # late move reduction - params are not optimized but this works well
+            if move_count >= 4 and depth >= 3 and move != self.killers[ply] and not move.promotion and not self.board.is_capture(move) and not self.board.is_check() and not self._is_move_check(move):
+                R = 2
+                if move_count >= 10 and depth >= 4:
+                    R = 3
+
+                piece_from, piece_to = self._make_move(move)
+                # reduce depth by R instead of 1
+                value = -self._negamax(depth - R, ply + 1, -beta, -alpha)
+                if value > alpha:
+                    # alpha is raised - do full-depth search
+                    value = -self._negamax(depth - 1, ply + 1, -beta, -alpha)
+            else:
+                piece_from, piece_to = self._make_move(move)
+                value = -self._negamax(depth - 1, ply + 1, -beta, -alpha)
+
             self._unmake_move(move, piece_from, piece_to)
             if value > best_value:
                 best_value = value
@@ -881,7 +898,7 @@ class Engine(object):
                     self.top_moves[board_hash] = move
                     alpha = value
                     if alpha >= beta:
-                        # fail low: position is too good - opponent has an already searched way to avoid it.
+                        # fail high: position is too good - opponent has an already searched way to avoid it.
                         prev_move = self.board.move_stack[-1]
                         self.killers[ply] = move
                         self.counters[prev_move.from_square][prev_move.to_square] = move
