@@ -944,6 +944,7 @@ class Engine(object):
         return gain[0]
 
     def _attackers_mask(self, square):
+        # returns attackers of both colors of the given square
         rank_pieces = BB_RANK_MASKS[square] & self.board.occupied
         file_pieces = BB_FILE_MASKS[square] & self.board.occupied
         diag_pieces = BB_DIAG_MASKS[square] & self.board.occupied
@@ -954,8 +955,7 @@ class Engine(object):
         attackers = (
             (BB_KING_ATTACKS[square] & self.board.kings) |
             (BB_KNIGHT_ATTACKS[square] & self.board.knights) |
-            (BB_RANK_ATTACKS[square][rank_pieces] & queens_and_rooks) |
-            (BB_FILE_ATTACKS[square][file_pieces] & queens_and_rooks) |
+            ((BB_RANK_ATTACKS[square][rank_pieces] | BB_FILE_ATTACKS[square][file_pieces]) & queens_and_rooks) |
             (BB_DIAG_ATTACKS[square][diag_pieces] & queens_and_bishops) |
             (BB_PAWN_ATTACKS[True][square] & self.board.pawns & self.board.occupied_co[False]) |
             (BB_PAWN_ATTACKS[False][square] & self.board.pawns & self.board.occupied_co[True]))
@@ -997,8 +997,7 @@ class Engine(object):
         queens_and_bishops = queens | bishops
 
         attackers = (
-            (BB_RANK_ATTACKS[square][rank_pieces] & queens_and_rooks) |
-            (BB_FILE_ATTACKS[square][file_pieces] & queens_and_rooks) |
+            ((BB_RANK_ATTACKS[square][rank_pieces] | BB_FILE_ATTACKS[square][file_pieces]) & queens_and_rooks) |
             (BB_DIAG_ATTACKS[square][diag_pieces] & queens_and_bishops))
 
         return attackers
@@ -1073,7 +1072,7 @@ class Engine(object):
             # NOTE:... currently endgame is only checked at start of search, but of course
             #       during search a node might turn into an endgame... so we need to test endgame once at start of eval
             #       at least if not self.endgame
-            # TODO this
+            # TODO this ... or just do tapered eval
             if self.endgame:
                 for sq in scan_forward(pawns):
                     p_val += self.EG_PAWN_SQ_TABLE[color][sq]
