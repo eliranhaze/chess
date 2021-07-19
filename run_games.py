@@ -5,7 +5,7 @@ from game import *
 # current engine version
 import engine
 e1 = engine.Engine()
-e1.MAX_ITER_DEPTH = 12
+e1.MAX_ITER_DEPTH = 20
 e1.book = 1
 ep1 = EnginePlayer(e1)
 ep1.name = e1.__module__
@@ -13,7 +13,7 @@ ep1.name = e1.__module__
 # engine with some change
 import engine_dev as engine_ver2
 e2 = engine_ver2.Engine()
-e2.MAX_ITER_DEPTH = 12
+e2.MAX_ITER_DEPTH = 20
 e2.book = 1
 ep2 = EnginePlayer(e2)
 ep2.name = e2.__module__
