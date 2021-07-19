@@ -10,7 +10,7 @@ uci_engines = {
       time_ratio = .6,
     ),
     "Arasan 22.3": dict(
-      elo = 1500,
+      elo = 1600,
       path = "/content/chess/arasan/arasanx-64",
       time_ratio = .9,
     ),
