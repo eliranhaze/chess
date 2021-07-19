@@ -296,6 +296,7 @@ class Engine(object):
         self.evals = {}
         self.top_moves = {}
         self.killers = []
+        self.counters = [[None]*64 for i in range(64)]
         self.history = []
         for i in range(2):
             self.history.append([])
@@ -588,7 +589,12 @@ class Engine(object):
             # ensures that killers are after all captures (which due to the above all have large negative values
             # but before quiet moves
             return -500
-        return -self.history[self.board.turn][move.from_square][move.to_square]
+        hist_score = 0
+        if len(self.board.move_stack) > 0:
+            prev_move = self.board.move_stack[-1]
+            if move == self.counters[prev_move.from_square][prev_move.to_square]:
+                hist_score -= 500
+        return hist_score - self.history[self.board.turn][move.from_square][move.to_square]
 
     def _gen_quiesce_moves(self):
         qs_moves = [
@@ -736,6 +742,7 @@ class Engine(object):
     def _search_root(self, depth):
 
         self.killers = [None] * (self.MAX_ITER_DEPTH + 1)
+        self.counters = [[None]*64 for i in range(64)]
         for side in range(2):
             for sfrom in range(64):
                 for sto in range(64):
@@ -831,7 +838,9 @@ class Engine(object):
                 beta = min(beta, val)
             if alpha >= beta:
                 move = self.board.move_stack[-1]
+                prev_move = self.board.move_stack[-2]
                 self.killers[ply] = move
+                self.counters[prev_move.from_square][prev_move.to_square] = move
                 self.history[self.board.turn][move.from_square][move.to_square] += depth*depth
                 return val
 
@@ -873,7 +882,9 @@ class Engine(object):
                     alpha = value
                     if alpha >= beta:
                         # fail low: position is too good - opponent has an already searched way to avoid it.
+                        prev_move = self.board.move_stack[-1]
                         self.killers[ply] = move
+                        self.counters[prev_move.from_square][prev_move.to_square] = move
                         self.history[self.board.turn][move.from_square][move.to_square] += depth*depth
                         break
 
