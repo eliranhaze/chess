@@ -1060,8 +1060,6 @@ class Engine(object):
         rooks = self.board.rooks & o
         queens = self.board.queens & o
 
-        # pawn and knight hashing - note that for other pieces this wouldn't be sound because attacks depend on other pieces
-        # TODO: another hashing idea - hash rooks for count, and hash rooks + file&rank for attack
         p_hash = self.p_hash[color][self.endgame]
         if pawns in p_hash:
             p_val = p_hash[pawns]
@@ -1075,6 +1073,7 @@ class Engine(object):
             # NOTE:... currently endgame is only checked at start of search, but of course
             #       during search a node might turn into an endgame... so we need to test endgame once at start of eval
             #       at least if not self.endgame
+            # TODO this
             if self.endgame:
                 for sq in scan_forward(pawns):
                     p_val += self.EG_PAWN_SQ_TABLE[color][sq]
@@ -1096,7 +1095,6 @@ class Engine(object):
                     n_val += self.MG_KNIGHT_SQ_TABLE[color][sq]
             n_hash[knights] = n_val
 
-        # rook hashing - this helps with speed. maybe hash attack as well according to file/rank occupancy
         r_hash = self.r_hash[color][self.endgame]
         if rooks in r_hash:
             r_val = r_hash[rooks]
@@ -1113,7 +1111,11 @@ class Engine(object):
         if bishops in b_hash:
             b_val = b_hash[bishops]
         else:
-            b_val = self.PIECE_VALUES[BISHOP] * self._bb_count(bishops)
+            num_bishops = self._bb_count(bishops)
+            b_val = self.PIECE_VALUES[BISHOP] * num_bishops
+            if num_bishops == 2:
+                # bishop pair bonus
+                b_val += 50
             for sq in scan_forward(bishops):
                 if self.endgame:
                     b_val += self.EG_BISHOP_SQ_TABLE[color][sq]
