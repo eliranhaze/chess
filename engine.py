@@ -42,6 +42,7 @@ BB_KING_ATTACKS = chess.BB_KING_ATTACKS
 BB_KNIGHT_ATTACKS = chess.BB_KNIGHT_ATTACKS
 BB_PAWN_ATTACKS = chess.BB_PAWN_ATTACKS
 
+msb = chess.msb
 scan_forward = chess.scan_forward
 
 # NOTE: JUNE 30, 2021
@@ -596,6 +597,19 @@ class Engine(object):
                 hist_score -= 500
         return hist_score - self.history[self.board.turn][move.from_square][move.to_square]
 
+    def is_checkmate(self):
+        # we are in checkmate when we are in check and have no moves left
+        # this is faster than board.is_checkmate because that tests for check twice
+        king = msb(self.board.kings & self.board.occupied_co[self.board.turn])
+        checkers = self.board.attackers_mask(not self.board.turn, king)
+        if checkers:
+            blockers = self.board._slider_blockers(king)
+            for move in self.board._generate_evasions(king, checkers):
+                if self.board._is_safe(king, blockers, move):
+                    return False
+            return True
+        return False
+
     def _gen_quiesce_moves(self):
         qs_moves = [
             m for m in self.board.legal_moves
@@ -670,7 +684,7 @@ class Engine(object):
         # mate checking there.
         # this can be avoided if we know we are never in check in qs - i.e. if we extend main search whenever
         # in check - should be tried in the future
-        if self.board.is_checkmate():
+        if self.is_checkmate():
             stand_pat = -self.MATE_SCORE
         else:
             stand_pat = self._evaluate_board()
