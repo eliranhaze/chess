@@ -68,7 +68,7 @@ class Engine(object):
     ENDGAME_DEPTH = DEPTH + 2
     MOVE_TIME_LIMIT = 1
 
-    TB_DIR = '/Users/eliran/Downloads/torrents/syzygy/'
+    TB_DIR = 'syz/' # we just need the rtbw files as we're only using wdl
     TB_PIECE_COUNT = 5
     TB_WIN = 2
     TB_LOSS = -2
