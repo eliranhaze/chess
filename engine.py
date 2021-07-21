@@ -446,8 +446,8 @@ class Engine(object):
 
     def _play_move(self):
         move = self._select_move()
-        print('playing %s' % self.board.san(move))
         self._make_move(move)
+        return move
 
     def _is_move_time_over(self):
         return time.time() - self._move_start_time > self.move_time_limit
