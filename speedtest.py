@@ -88,11 +88,8 @@ def test(fen, play = 0):
 # Might want to add some more from here: https://www.chessprogramming.org/Test-Positions
 # Also: https://www.chessprogramming.org/Strategic_Test_Suite
 
-# after 1. e4
-test('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1')
-
 # after 1. e4 c5
-test('rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2', play = 6)
+test('rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2', play = 4)
 
 # a position in the sicilian, as white
 test('rnbqkb1r/1p3ppp/p2p1n2/4p3/3NP3/2N1B3/PPP2PPP/R2QKB1R w KQkq - 0 7', play = 4)
@@ -104,7 +101,7 @@ test('rn1qk2r/p3bppp/bpp1pn2/3p4/2PP4/1PB2NP1/P3PPBP/RN1QK2R w KQkq - 0 9', play
 test('8/p6p/1p1Pk3/5p1p/1P3K1P/6P1/5P2/8 b - - 0 46', play = 10)
 
 # another endgame
-test('8/B7/1P2k3/1K6/8/5pn1/8/8 w - - 0 1', play = 6)
+test('8/B7/1P2k3/1K6/8/5pn1/8/8 w - - 0 1', play = 4)
 
 # avoid being mated
 test('2r3k1/5pp1/3p3p/8/8/6B1/5PPP/3R2K1 w - - 0 1')
@@ -113,10 +110,10 @@ test('2r3k1/5pp1/3p3p/8/8/6B1/5PPP/3R2K1 w - - 0 1')
 test('1r3b1k/5Qp1/p6B/q1Pp4/2p5/5P1P/P1K2P2/3R2R1 b - - 2 27', play = 2)
 
 # a sicilian position
-test('r1bqk2r/pp1pppbp/2n2np1/1Bp5/4P3/5N2/PPPP1PPP/RNBQR1K1 w kq - 4 6', play = 4)
+test('r1bqk2r/pp1pppbp/2n2np1/1Bp5/4P3/5N2/PPPP1PPP/RNBQR1K1 w kq - 4 6', play = 2)
 
 # queen's gambit position
-test('r1bqkb1r/pp1n1ppp/2p1pn2/3p2B1/2PP4/2N1PN2/PP3PPP/R2QKB1R b KQkq - 1 6', play = 4)
+test('r1bqkb1r/pp1n1ppp/2p1pn2/3p2B1/2PP4/2N1PN2/PP3PPP/R2QKB1R b KQkq - 1 6', play = 2)
 
 # easy mate in 3, play to mate (depth >= 5 needed to find mate)
 test('r5rk/5p1p/5R2/4B3/8/8/7P/7K w', play = 4)
