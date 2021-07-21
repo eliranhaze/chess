@@ -8,6 +8,10 @@ depth = int(sys.argv[2])
 time_limit = float(sys.argv[3]) if len(sys.argv) > 3 else 2000
 DETAIL = False
 
+print('------')
+print('speedtest: %s depth=%s' % (engine.__name__, depth))
+print('------')
+
 e = engine.Engine()
 e.LOG = 0
 e.PRINT = 0
@@ -37,12 +41,11 @@ def timing(f):
     return wrap
 
 def timing_report():
-    print('-'*10)
-    print('timing report')
-    print('-'*10)
+    print('-'*6)
     total_t = sum(t for _, (t, _) in ftimes.items())
     for fname, (t, count) in ftimes.items():
         print('%s: %.2fs [%.1f%%]  %d x %.2fus' % (fname, t, 100*t/total_t, count, 1000000*t/count))
+    print()
 
 def inject_timing():
     # note: doesn't work well with recursive functions such as quiescence and negamax
@@ -121,12 +124,11 @@ test('r5rk/5p1p/5R2/4B3/8/8/7P/7K w', play = 4)
 # choose wisely: mate in 3 vs capturing queen
 test('2r3k1/5ppp/5b2/8/7Q/5N2/3R1PPP/6K1 b - - 0 1', play = 4)
 
-print('---------')
 print('total time: %.2fs' % total_time)
 print('total nodes:', total_nodes, '[%.1fk nps]' % (total_nodes / total_time / 1000))
 print('total moves: %d [%.0f%% cutoff]' %
         (total_used_moves, 100*(total_all_moves-total_used_moves)/total_all_moves))
-print('total q moves:', total_used_q_moves)
+#print('total q moves:', total_used_q_moves)
 #print('total moves possible: %d' % total_all_moves)
 
 timing_report()
