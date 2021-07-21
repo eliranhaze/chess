@@ -9,6 +9,7 @@ from collections import namedtuple
 from IPython.display import SVG, display
 
 #from evaluate import Evaluator
+from board import Board
 
 Entry = namedtuple('Entry', ['val', 'type', 'depth'])
 # Entry types
@@ -288,7 +289,7 @@ class Engine(object):
             setattr(self, table_name, combined)
 
     def _init_game_state(self, board = None):
-        self.board = board if board else chess.Board()
+        self.board = board if board else Board()
         self.book = self.BOOK
         self.endgame = False
         self.resigned = False
@@ -346,7 +347,7 @@ class Engine(object):
 
     def set_fen(self, fen):
         self._init_game_state()
-        self.board = chess.Board(fen)
+        self.board = Board(fen)
 
     def average_depth(self):
         return sum(self.depth_record) / len(self.depth_record)
@@ -355,7 +356,7 @@ class Engine(object):
         return sum(self.time_record) / len(self.time_record)
 
     def play(self, player_color = chess.WHITE, board = None):
-        self.board = board if board else chess.Board()
+        self.board = board if board else Board()
         self._get_hash() # for init
         self.player_color = player_color
         self.color = not self.player_color
