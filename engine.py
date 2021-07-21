@@ -33,6 +33,8 @@ NULL_MOVE = chess.Move.null()
 BB_RANK_MASKS = chess.BB_RANK_MASKS
 BB_FILE_MASKS = chess.BB_FILE_MASKS
 BB_DIAG_MASKS = chess.BB_DIAG_MASKS
+BB_RANK_2 = chess.BB_RANK_2
+BB_RANK_7 = chess.BB_RANK_7
 
 BB_RANK_ATTACKS = chess.BB_RANK_ATTACKS
 BB_FILE_ATTACKS = chess.BB_FILE_ATTACKS
@@ -41,6 +43,7 @@ BB_KING_ATTACKS = chess.BB_KING_ATTACKS
 BB_KNIGHT_ATTACKS = chess.BB_KNIGHT_ATTACKS
 BB_PAWN_ATTACKS = chess.BB_PAWN_ATTACKS
 
+msb = chess.msb
 scan_forward = chess.scan_forward
 
 # NOTE: JUNE 30, 2021
@@ -84,9 +87,6 @@ class Engine(object):
     TB_WIN_SCORE = MATE_SCORE - 1
     TB_LOSS_SCORE = -TB_WIN_SCORE
     INF = MATE_SCORE + 1
-
-    # rank just before promotion, for either side - for checking for promotion moves
-    PROMOTION_BORDER = [chess.BB_RANK_2, chess.BB_RANK_7]
 
     KING_SHELTER_SQUARES = [(56,57,58,62,63),(0,1,2,6,7)]
     PAWN_SHIELD_MASKS = {
@@ -153,6 +153,94 @@ class Engine(object):
               0,   0,   0,   0,   0,   0,   0,   0,
         ]
 
+    MG_KNIGHT_SQ_TABLE = [
+            -167, -89, -34, -49,  61, -97, -15, -107,
+             -73, -41,  72,  36,  23,  62,   7,  -17,
+             -47,  60,  37,  65,  84, 129,  73,   44,
+              -9,  17,  19,  53,  37,  69,  18,   22,
+             -13,   4,  16,  13,  28,  19,  21,   -8,
+             -23,  -9,  12,  10,  19,  17,  25,  -16,
+             -29, -53, -12,  -3,  -1,  18, -14,  -19,
+            -105, -21, -58, -33, -17, -28, -19,  -23,
+        ]
+
+    EG_KNIGHT_SQ_TABLE = [
+            -58, -38, -13, -28, -31, -27, -63, -99,
+            -25,  -8, -25,  -2,  -9, -25, -24, -52,
+            -24, -20,  10,   9,  -1,  -9, -19, -41,
+            -17,   3,  22,  22,  22,  11,   8, -18,
+            -18,  -6,  16,  25,  16,  17,   4, -18,
+            -23,  -3,  -1,  15,  10,  -3, -20, -22,
+            -42, -20, -10,  -5,  -2, -20, -23, -44,
+            -29, -51, -23, -15, -22, -18, -50, -64,
+        ]
+
+    MG_BISHOP_SQ_TABLE = [
+            -29,   4, -82, -37, -25, -42,   7,  -8,
+            -26,  16, -18, -13,  30,  59,  18, -47,
+            -16,  37,  43,  40,  35,  50,  37,  -2,
+             -4,   5,  19,  50,  37,  37,   7,  -2,
+             -6,  13,  13,  26,  34,  12,  10,   4,
+              0,  15,  15,  15,  14,  27,  18,  10,
+              4,  15,  16,   0,   7,  21,  33,   1,
+            -33,  -3, -14, -21, -13, -12, -39, -21,
+        ]
+
+    EG_BISHOP_SQ_TABLE = [
+            -14, -21, -11,  -8, -7,  -9, -17, -24,
+             -8,  -4,   7, -12, -3, -13,  -4, -14,
+              2,  -8,   0,  -1, -2,   6,   0,   4,
+             -3,   9,  12,   9, 14,  10,   3,   2,
+             -6,   3,  13,  19,  7,  10,  -3,  -9,
+            -12,  -3,   8,  10, 13,   3,  -7, -15,
+            -14, -18,  -7,  -1,  4,  -9, -15, -27,
+            -23,  -9, -23,  -5, -9, -16,  -5, -17,
+        ]
+
+    MG_ROOK_SQ_TABLE = [
+             32,  42,  32,  51, 63,  9,  31,  43,
+             27,  32,  58,  62, 80, 67,  26,  44,
+             -5,  19,  26,  36, 17, 45,  61,  16,
+            -24, -11,   7,  26, 24, 35,  -8, -20,
+            -36, -26, -12,  -1,  9, -7,   6, -23,
+            -45, -25, -16, -17,  3,  0,  -5, -33,
+            -44, -16, -20,  -9, -1, 11,  -6, -71,
+            -19, -13,   1,  17, 16,  7, -37, -26,
+        ]
+
+    EG_ROOK_SQ_TABLE = [
+            13, 10, 18, 15, 12,  12,   8,   5,
+            11, 13, 13, 11, -3,   3,   8,   3,
+             7,  7,  7,  5,  4,  -3,  -5,  -3,
+             4,  3, 13,  1,  2,   1,  -1,   2,
+             3,  5,  8,  4, -5,  -6,  -8, -11,
+            -4,  0, -5, -1, -7, -12,  -8, -16,
+            -6, -6,  0,  2, -9,  -9, -11,  -3,
+            -9,  2,  3, -1, -5, -13,   4, -20,
+        ]
+
+    MG_QUEEN_SQ_TABLE = [
+            -28,   0,  29,  12,  59,  44,  43,  45,
+            -24, -39,  -5,   1, -16,  57,  28,  54,
+            -13, -17,   7,   8,  29,  56,  47,  57,
+            -27, -27, -16, -16,  -1,  17,  -2,   1,
+             -9, -26,  -9, -10,  -2,  -4,   3,  -3,
+            -14,   2, -11,  -2,  -5,   2,  14,   5,
+            -35,  -8,  11,   2,   8,  15,  -3,   1,
+             -1, -18,  -9,  10, -15, -25, -31, -50,
+        ]
+
+    EG_QUEEN_SQ_TABLE = [
+             -9,  22,  22,  27,  27,  19,  10,  20,
+            -17,  20,  32,  41,  58,  25,  30,   0,
+            -20,   6,   9,  49,  47,  35,  19,   9,
+              3,  22,  24,  45,  57,  40,  57,  36,
+            -18,  28,  19,  47,  31,  34,  39,  23,
+            -16, -27,  15,   6,   9,  17,  10,   5,
+            -22, -23, -30, -16, -16, -23, -36, -32,
+            -33, -28, -22, -43,  -5, -32, -20, -41,
+        ]
+
     MG_KING_SQ_TABLE = [
             -65,  23,  16, -15, -56, -34,   2,  13,
              29,  -1, -20,  -7,  -8,  -4, -38, -29,
@@ -198,14 +286,11 @@ class Engine(object):
     __repr__ = __str__
 
     def _init_sq_tables(self):
-        # NOTE: This cannot be called twice!!
         sq_tables = [var for var in dir(self) if var.endswith('SQ_TABLE')]
         for table_name in sq_tables:
             table = getattr(self, table_name)
-            w_table_name = table_name + '_W'
             w_table = [0] * 64
             for sq in range(64): w_table[sq] = table[sq ^ 56]
-            b_table = table_name + '_B'
             b_table = table
             combined = [b_table, w_table]
             setattr(self, table_name, combined)
@@ -222,6 +307,7 @@ class Engine(object):
         self.evals = {}
         self.top_moves = {}
         self.killers = []
+        self.counters = [[None]*64 for i in range(64)]
         self.history = []
         for i in range(2):
             self.history.append([])
@@ -230,9 +316,11 @@ class Engine(object):
                 for k in range(64):
                     self.history[i][j].append(0)
         self.tp = {}
-        self.p_hash = {}
-        self.n_hash = {}
-        self.r_hash = {}
+        self.p_hash = [[{},{}],[{},{}]]
+        self.n_hash = [[{},{}],[{},{}]]
+        self.r_hash = [[{},{}],[{},{}]]
+        self.b_hash = [[{},{}],[{},{}]]
+        self.q_hash = [[{},{}],[{},{}]]
         self.kp_hash = {}
         self.all_moves = 0
         self.used_moves = 0
@@ -370,8 +458,8 @@ class Engine(object):
 
     def _play_move(self):
         move = self._select_move()
-        print('playing %s' % self.board.san(move))
         self._make_move(move)
+        return move
 
     def _is_move_time_over(self):
         return time.time() - self._move_start_time > self.move_time_limit
@@ -504,6 +592,8 @@ class Engine(object):
                 yield move
 
     def _move_sortkey(self, move):
+        if move.promotion:
+            return -2 * self.PIECE_VALUES[QUEEN]
         if self.board.is_capture(move):
             # use mvv/lva score for captures
             victim = self.board.piece_type_at(move.to_square)
@@ -520,7 +610,25 @@ class Engine(object):
             # ensures that killers are after all captures (which due to the above all have large negative values
             # but before quiet moves
             return -500
-        return -self.history[self.board.turn][move.from_square][move.to_square]
+        hist_score = 0
+        if len(self.board.move_stack) > 0:
+            prev_move = self.board.move_stack[-1]
+            if move == self.counters[prev_move.from_square][prev_move.to_square]:
+                hist_score -= 500
+        return hist_score - self.history[self.board.turn][move.from_square][move.to_square]
+
+    def is_checkmate(self):
+        # we are in checkmate when we are in check and have no moves left
+        # this is faster than board.is_checkmate because that tests for check twice
+        king = msb(self.board.kings & self.board.occupied_co[self.board.turn])
+        checkers = self.board.attackers_mask(not self.board.turn, king)
+        if checkers:
+            blockers = self.board._slider_blockers(king)
+            for move in self.board._generate_evasions(king, checkers):
+                if self.board._is_safe(king, blockers, move):
+                    return False
+            return True
+        return False
 
     def _gen_quiesce_moves(self):
         qs_moves = [
@@ -545,7 +653,7 @@ class Engine(object):
 
     def _mvv_lva_sort(self, move):
         if move.promotion:
-            return -self.PIECE_VALUES[move.promotion]
+            return -8 * self.PIECE_VALUES[move.promotion]
         if not self.board.is_capture(move):
             # check move
             return 0
@@ -596,7 +704,7 @@ class Engine(object):
         # mate checking there.
         # this can be avoided if we know we are never in check in qs - i.e. if we extend main search whenever
         # in check - should be tried in the future
-        if self.board.is_checkmate():
+        if self.is_checkmate():
             stand_pat = -self.MATE_SCORE
         else:
             stand_pat = self._evaluate_board()
@@ -613,11 +721,14 @@ class Engine(object):
         # NOTE: wiki suggests turning delta pruning off during endgame
         delta = self._max_opponent_piece_value()
         # check if any move might be promoting
-        if self.board.pawns & self.board.occupied_co[self.board.turn] & self.PROMOTION_BORDER[self.board.turn]:
-            # TODO: should also check if not piece is block (otherwise it's not really a potential promotion)
-            # also test values other than 2 here (maybe a bit lower as in CPW)
-            delta *= 2 # TODO: this should be += queen value... because max opp could be e.g. knight
-        if stand_pat + delta < alpha: # promotions might have to be considered as well - we might promote and capture queen
+        pawns = self.board.pawns & self.board.occupied_co[self.board.turn]
+        if pawns:
+            if self.board.turn and (pawns & BB_RANK_7 & (pawns << 8 & ~self.board.occupied)):
+                delta += (self.PIECE_VALUES[QUEEN] - self.PIECE_VALUES[PAWN])
+            elif not self.board.turn and (pawns & BB_RANK_2 & (pawns >> 8 & ~self.board.occupied)):
+                delta += (self.PIECE_VALUES[QUEEN] - self.PIECE_VALUES[PAWN])
+
+        if stand_pat + delta < alpha: 
             # can't raise alpha - saves quite some time
             return alpha
         
@@ -665,6 +776,7 @@ class Engine(object):
     def _search_root(self, depth):
 
         self.killers = [None] * (self.MAX_ITER_DEPTH + 1)
+        self.counters = [[None]*64 for i in range(64)]
         for side in range(2):
             for sfrom in range(64):
                 for sto in range(64):
@@ -792,7 +904,9 @@ class Engine(object):
                 beta = min(beta, val)
             if alpha >= beta:
                 move = self.board.move_stack[-1]
+                prev_move = self.board.move_stack[-2]
                 self.killers[ply] = move
+                self.counters[prev_move.from_square][prev_move.to_square] = move
                 self.history[self.board.turn][move.from_square][move.to_square] += depth*depth
                 return val
 
@@ -827,8 +941,25 @@ class Engine(object):
         move_count = 0
         for move in gen_moves():
             move_count += 1
-            piece_from, piece_to = self._make_move(move)
-            value = -self._negamax(depth - 1, ply + 1, -beta, -alpha)
+
+            self.ply = ply
+
+            # late move reduction - params are not optimized but this works well
+            if move_count >= 4 and depth >= 3 and move != self.killers[ply] and not move.promotion and not self.board.is_capture(move) and not self.board.is_check() and not self._is_move_check(move):
+                R = 2
+                if move_count >= 10 and depth >= 4:
+                    R = 3
+
+                piece_from, piece_to = self._make_move(move)
+                # reduce depth by R instead of 1
+                value = -self._negamax(depth - R, ply + 1, -beta, -alpha)
+                if value > alpha:
+                    # alpha is raised - do full-depth search
+                    value = -self._negamax(depth - 1, ply + 1, -beta, -alpha)
+            else:
+                piece_from, piece_to = self._make_move(move)
+                value = -self._negamax(depth - 1, ply + 1, -beta, -alpha)
+
             self._unmake_move(move, piece_from, piece_to)
             if value > best_value:
                 best_value = value
@@ -836,8 +967,10 @@ class Engine(object):
                     self.top_moves[board_hash] = move
                     alpha = value
                     if alpha >= beta:
-                        # fail low: position is too good - opponent has an already searched way to avoid it.
+                        # fail high: position is too good - opponent has an already searched way to avoid it.
+                        prev_move = self.board.move_stack[-1]
                         self.killers[ply] = move
+                        self.counters[prev_move.from_square][prev_move.to_square] = move
                         self.history[self.board.turn][move.from_square][move.to_square] += depth*depth
                         break
 
@@ -897,6 +1030,7 @@ class Engine(object):
         return gain[0]
 
     def _attackers_mask(self, square):
+        # returns attackers of both colors of the given square
         rank_pieces = BB_RANK_MASKS[square] & self.board.occupied
         file_pieces = BB_FILE_MASKS[square] & self.board.occupied
         diag_pieces = BB_DIAG_MASKS[square] & self.board.occupied
@@ -907,8 +1041,7 @@ class Engine(object):
         attackers = (
             (BB_KING_ATTACKS[square] & self.board.kings) |
             (BB_KNIGHT_ATTACKS[square] & self.board.knights) |
-            (BB_RANK_ATTACKS[square][rank_pieces] & queens_and_rooks) |
-            (BB_FILE_ATTACKS[square][file_pieces] & queens_and_rooks) |
+            ((BB_RANK_ATTACKS[square][rank_pieces] | BB_FILE_ATTACKS[square][file_pieces]) & queens_and_rooks) |
             (BB_DIAG_ATTACKS[square][diag_pieces] & queens_and_bishops) |
             (BB_PAWN_ATTACKS[True][square] & self.board.pawns & self.board.occupied_co[False]) |
             (BB_PAWN_ATTACKS[False][square] & self.board.pawns & self.board.occupied_co[True]))
@@ -950,8 +1083,7 @@ class Engine(object):
         queens_and_bishops = queens | bishops
 
         attackers = (
-            (BB_RANK_ATTACKS[square][rank_pieces] & queens_and_rooks) |
-            (BB_FILE_ATTACKS[square][file_pieces] & queens_and_rooks) |
+            ((BB_RANK_ATTACKS[square][rank_pieces] | BB_FILE_ATTACKS[square][file_pieces]) & queens_and_rooks) |
             (BB_DIAG_ATTACKS[square][diag_pieces] & queens_and_bishops))
 
         return attackers
@@ -1013,47 +1145,85 @@ class Engine(object):
         rooks = self.board.rooks & o
         queens = self.board.queens & o
 
-        # pawn and knight hashing - note that for other pieces this wouldn't be sound because attacks depend on other pieces
-        # TODO: another hashing idea - hash rooks for count, and hash rooks + file&rank for attack
-        if pawns in self.p_hash:
-            p_val = self.p_hash[pawns]
+        p_hash = self.p_hash[color][self.endgame]
+        if pawns in p_hash:
+            p_val = p_hash[pawns]
         else:
             p_val = self.PIECE_VALUES[PAWN] * self._bb_count(pawns)
+            # check for double pawns
+            for fl in BB_FILES:
+                p_count = self._bb_count(pawns & fl)
+                if p_count > 1:
+                    p_val -= (p_count-1) * 15
+            # NOTE:... currently endgame is only checked at start of search, but of course
+            #       during search a node might turn into an endgame... so we need to test endgame once at start of eval
+            #       at least if not self.endgame
+            # TODO this ... or just do tapered eval
             if self.endgame:
                 for sq in scan_forward(pawns):
                     p_val += self.EG_PAWN_SQ_TABLE[color][sq]
             else:
                 for sq in scan_forward(pawns):
                     p_val += self.MG_PAWN_SQ_TABLE[color][sq]
-            # check for double pawns
-            for fl in BB_FILES:
-                p_count = self._bb_count(pawns & fl)
-                if p_count > 1:
-                    p_val -= (p_count-1) * 15
-            self.p_hash[pawns] = p_val
+            p_hash[pawns] = p_val
 
-        if knights in self.n_hash:
-            n_val = self.n_hash[knights]
+        n_hash = self.n_hash[color][self.endgame]
+        if knights in n_hash:
+            n_val = n_hash[knights]
         else:
             n_val = self.PIECE_VALUES[KNIGHT] * self._bb_count(knights)
-            for i in scan_forward(knights):
-                n_val += self.KNIGHT_ATTACK_TABLE[i] * self.SQUARE_VALUE
-            self.n_hash[knights] = n_val
+            for sq in scan_forward(knights):
+                n_val += self.KNIGHT_ATTACK_TABLE[sq] * self.SQUARE_VALUE
+                if self.endgame:
+                    n_val += self.EG_KNIGHT_SQ_TABLE[color][sq]
+                else:
+                    n_val += self.MG_KNIGHT_SQ_TABLE[color][sq]
+            n_hash[knights] = n_val
 
-        # rook hashing - this helps with speed. maybe hash attack as well according to file/rank occupancy
-        if rooks in self.r_hash:
-            r_val = self.r_hash[rooks]
+        r_hash = self.r_hash[color][self.endgame]
+        if rooks in r_hash:
+            r_val = r_hash[rooks]
         else:
             r_val = self.PIECE_VALUES[ROOK] * self._bb_count(rooks)
-            self.r_hash[rooks] = r_val
+            for sq in scan_forward(rooks):
+                if self.endgame:
+                    r_val += self.EG_ROOK_SQ_TABLE[color][sq]
+                else:
+                    r_val += self.MG_ROOK_SQ_TABLE[color][sq]
+            r_hash[rooks] = r_val
+
+        b_hash = self.b_hash[color][self.endgame]
+        if bishops in b_hash:
+            b_val = b_hash[bishops]
+        else:
+            num_bishops = self._bb_count(bishops)
+            b_val = self.PIECE_VALUES[BISHOP] * num_bishops
+            if num_bishops == 2:
+                # bishop pair bonus
+                b_val += 50
+            for sq in scan_forward(bishops):
+                if self.endgame:
+                    b_val += self.EG_BISHOP_SQ_TABLE[color][sq]
+                else:
+                    b_val += self.MG_BISHOP_SQ_TABLE[color][sq]
+            b_hash[bishops] = b_val
+
+        q_hash = self.q_hash[color][self.endgame]
+        if queens in q_hash:
+            q_val = q_hash[queens]
+        else:
+            q_val = self.PIECE_VALUES[QUEEN] * self._bb_count(queens)
+            for sq in scan_forward(queens):
+                if self.endgame:
+                    q_val += self.EG_QUEEN_SQ_TABLE[color][sq]
+                else:
+                    q_val += self.MG_QUEEN_SQ_TABLE[color][sq]
+            q_hash[queens] = q_val
 
         king_sq = (self.board.kings & o).bit_length() - 1
         kp_val = self._king_pawns_eval(king_sq, pawns, color)
 
-        e = p_val + n_val + r_val + kp_val
-
-        e += self.PIECE_VALUES[BISHOP] * self._bb_count(bishops)
-        e += self.PIECE_VALUES[QUEEN] * self._bb_count(queens)
+        e = p_val + n_val  + b_val + r_val + q_val + kp_val
 
         # NOTE: optimized for pypy: for loops are faster than sum in pypy3 - in python3 it's the other way around
 
@@ -1064,8 +1234,6 @@ class Engine(object):
             e += self.EG_KING_SQ_TABLE[color][king_sq]
         else:
             e += self.MG_KING_SQ_TABLE[color][king_sq]
-
-        # in endgame, count king attacks as well
 
         # need also to compute defense value as below -- might be very easy&fast using the attacks mask from above
         return e
