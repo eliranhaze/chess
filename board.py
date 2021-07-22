@@ -255,27 +255,30 @@ class Board(chess.Board):
 
         return white_castling | black_castling
 
+    @property
+    def legal_moves(self):
+        return self.generate_legal_moves()
+
     def generate_legal_moves(self, from_mask = BB_ALL, to_mask = BB_ALL):
         king_mask = self.kings & self.occupied_co[self.turn]
         king = msb(king_mask)
         blockers = self._slider_blockers(king)
         checkers = self.attackers_mask(not self.turn, king)
         if checkers:
-            for move in self._generate_evasions(king, checkers, from_mask, to_mask):
-                if self._is_safe(king, blockers, move):
-                    yield move
+            return [move for move in self._generate_evasions(king, checkers, from_mask, to_mask)
+                    if self._is_safe(king, blockers, move)]
         else:
-            for move in self.generate_pseudo_legal_moves(from_mask, to_mask):
-                if self._is_safe(king, blockers, move):
-                    yield move
+            return [move for move in self.generate_pseudo_legal_moves(from_mask, to_mask)
+                    if self._is_safe(king, blockers, move)]
 
     def generate_castling_moves(self, from_mask = BB_ALL, to_mask = BB_ALL):
         backrank = BB_RANK_1 if self.turn == WHITE else BB_RANK_8
         king = self.occupied_co[self.turn] & self.kings & backrank & from_mask
         king = king & -king
         if not king:
-            return
+            return []
 
+        moves = []
         bb_c = BB_FILE_C & backrank
         bb_d = BB_FILE_D & backrank
         bb_f = BB_FILE_F & backrank
@@ -297,4 +300,76 @@ class Board(chess.Board):
             if not (oc_king_rook & (king_path | rook_path | king_to | rook_to) or
                     self._attacked_for_king(king_path | king, oc_king) or
                     self._attacked_for_king(king_to, oc_king_rook ^ rook_to)):
-                yield self._from_chess960(self.chess960, king_sq, candidate)
+                moves.append(self._from_chess960(self.chess960, king_sq, candidate))
+
+        return moves
+
+    def generate_pseudo_legal_moves(self, from_mask = BB_ALL, to_mask = BB_ALL):
+        our_pieces = self.occupied_co[self.turn]
+
+        # Generate piece moves.
+        non_pawns = our_pieces & ~self.pawns & from_mask
+        result = []
+        for from_square in scan_reversed(non_pawns):
+            moves = self.attacks_mask(from_square) & ~our_pieces & to_mask
+            for to_square in scan_reversed(moves):
+                result.append(Move(from_square, to_square))
+
+        # Generate castling moves.
+        if from_mask & self.kings:
+            result += self.generate_castling_moves(from_mask, to_mask)
+
+        # The remaining moves are all pawn moves.
+        pawns = self.pawns & self.occupied_co[self.turn] & from_mask
+        if not pawns:
+            return result
+
+        # Generate pawn captures.
+        capturers = pawns
+        for from_square in scan_reversed(capturers):
+            targets = (
+                BB_PAWN_ATTACKS[self.turn][from_square] &
+                self.occupied_co[not self.turn] & to_mask)
+
+            for to_square in scan_reversed(targets):
+                if square_rank(to_square) in [0, 7]:
+                    result.append(Move(from_square, to_square, QUEEN))
+                    result.append(Move(from_square, to_square, ROOK))
+                    result.append(Move(from_square, to_square, BISHOP))
+                    result.append(Move(from_square, to_square, KNIGHT))
+                else:
+                    result.append(Move(from_square, to_square))
+
+        # Prepare pawn advance generation.
+        if self.turn == WHITE:
+            single_moves = pawns << 8 & ~self.occupied
+            double_moves = single_moves << 8 & ~self.occupied & (BB_RANK_3 | BB_RANK_4)
+        else:
+            single_moves = pawns >> 8 & ~self.occupied
+            double_moves = single_moves >> 8 & ~self.occupied & (BB_RANK_6 | BB_RANK_5)
+
+        single_moves &= to_mask
+        double_moves &= to_mask
+
+        # Generate single pawn moves.
+        for to_square in scan_reversed(single_moves):
+            from_square = to_square + (8 if self.turn == BLACK else -8)
+
+            if square_rank(to_square) in [0, 7]:
+                result.append(Move(from_square, to_square, QUEEN))
+                result.append(Move(from_square, to_square, ROOK))
+                result.append(Move(from_square, to_square, BISHOP))
+                result.append(Move(from_square, to_square, KNIGHT))
+            else:
+                result.append(Move(from_square, to_square))
+
+        # Generate double pawn moves.
+        for to_square in scan_reversed(double_moves):
+            from_square = to_square + (16 if self.turn == BLACK else -16)
+            result.append(Move(from_square, to_square))
+
+        # Generate en passant captures.
+        if self.ep_square:
+            result += [m for m in self.generate_pseudo_legal_ep(from_mask, to_mask)]
+
+        return result
