@@ -2,7 +2,6 @@ import chess
 import chess.engine
 import chess.pgn
 import random
-import stockfish
 import time
 
 from engine import Engine
