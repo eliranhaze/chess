@@ -1,4 +1,5 @@
 import chess
+import dataclasses
 
 between = chess.between
 msb = chess.msb
@@ -22,6 +23,10 @@ BB_FILE_G = chess.BB_FILE_G
 BB_FILES = chess.BB_FILES
 BB_ALL = chess.BB_ALL
 BB_SQUARES = chess.BB_SQUARES
+
+BB_RANK_3_4 = (BB_RANK_3 | BB_RANK_4)
+BB_RANK_5_6 = (BB_RANK_5 | BB_RANK_6)
+
 BB_PAWN_ATTACKS = chess.BB_PAWN_ATTACKS
 BB_KING_ATTACKS = chess.BB_KING_ATTACKS
 BB_KNIGHT_ATTACKS = chess.BB_KNIGHT_ATTACKS
@@ -98,6 +103,28 @@ class Board(chess.Board):
             (BB_PAWN_ATTACKS[not color][square] & self.pawns))
 
         return attackers & self.occupied_co[color]
+
+    def attacks_mask(self, square):
+        bb_square = BB_SQUARES[square]
+
+        if bb_square & self.pawns:
+            color = bool(bb_square & self.occupied_co[WHITE])
+            return BB_PAWN_ATTACKS[color][square]
+        if bb_square & self.knights:
+            return BB_KNIGHT_ATTACKS[square]
+        if bb_square & self.kings:
+            return BB_KING_ATTACKS[square]
+        if bb_square & self.bishops:
+            return BB_DIAG_ATTACKS[square][BB_DIAG_MASKS[square] & self.occupied]
+        if bb_square & self.rooks:
+            return (BB_RANK_ATTACKS[square][BB_RANK_MASKS[square] & self.occupied] |
+                        BB_FILE_ATTACKS[square][BB_FILE_MASKS[square] & self.occupied])
+        if bb_square & self.queens:
+            attacks = BB_DIAG_ATTACKS[square][BB_DIAG_MASKS[square] & self.occupied]
+            attacks |= (BB_RANK_ATTACKS[square][BB_RANK_MASKS[square] & self.occupied] |
+                        BB_FILE_ATTACKS[square][BB_FILE_MASKS[square] & self.occupied])
+            return attacks
+        return 0
 
     def push(self, move):
         """ pushes move and returns moving piece type """
@@ -320,7 +347,7 @@ class Board(chess.Board):
             result += self.generate_castling_moves(from_mask, to_mask)
 
         # The remaining moves are all pawn moves.
-        pawns = self.pawns & self.occupied_co[self.turn] & from_mask
+        pawns = self.pawns & our_pieces & from_mask
         if not pawns:
             return result
 
@@ -343,10 +370,10 @@ class Board(chess.Board):
         # Prepare pawn advance generation.
         if self.turn == WHITE:
             single_moves = pawns << 8 & ~self.occupied
-            double_moves = single_moves << 8 & ~self.occupied & (BB_RANK_3 | BB_RANK_4)
+            double_moves = single_moves << 8 & ~self.occupied & BB_RANK_3_4
         else:
             single_moves = pawns >> 8 & ~self.occupied
-            double_moves = single_moves >> 8 & ~self.occupied & (BB_RANK_6 | BB_RANK_5)
+            double_moves = single_moves >> 8 & ~self.occupied & BB_RANK_5_6
 
         single_moves &= to_mask
         double_moves &= to_mask
