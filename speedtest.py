@@ -49,13 +49,19 @@ def timing_report():
 
 def inject_timing():
     # note: doesn't work well with recursive functions such as quiescence and negamax
+    #engine.Board.attacks_mask = timing(engine.Board.attacks_mask)
+    #engine.Board.is_insufficient_material = timing(engine.Board.is_insufficient_material)
+    engine.Board.is_stalemate = timing(engine.Board.is_stalemate)
     e.is_checkmate = timing(e.is_checkmate)
+    e._is_draw = timing(e._is_draw)
     e._is_move_check = timing(e._is_move_check)
     e._make_move = timing(e._make_move)
     e._search_root = timing(e._search_root)
     e._evaluate_board = timing(e._evaluate_board)
+    e._piece_eval = timing(e._piece_eval)
     e._sorted_moves = timing(e._sorted_moves)
     e._sorted_q_moves = timing(e._sorted_q_moves)
+    #e._move_sortkey = timing(e._move_sortkey)
 
 inject_timing()
 
