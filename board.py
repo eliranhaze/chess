@@ -262,7 +262,9 @@ class Board(chess.Board):
             king_path = between(king_sq, msb(king_to))
             rook_path = between(candidate, msb(rook_to))
 
-            if not ((self.occupied ^ king ^ rook) & (king_path | rook_path | king_to | rook_to) or
-                    self._attacked_for_king(king_path | king, self.occupied ^ king) or
-                    self._attacked_for_king(king_to, self.occupied ^ king ^ rook ^ rook_to)):
+            oc_king = self.occupied ^ king
+            oc_king_rook = oc_king ^ rook
+            if not (oc_king_rook & (king_path | rook_path | king_to | rook_to) or
+                    self._attacked_for_king(king_path | king, oc_king) or
+                    self._attacked_for_king(king_to, oc_king_rook ^ rook_to)):
                 yield self._from_chess960(self.chess960, king_sq, candidate)
