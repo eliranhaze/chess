@@ -104,6 +104,37 @@ class Board(chess.Board):
 
         return attackers & self.occupied_co[color]
 
+    def is_attacked_by(self, color, square):
+        # can just call this for is_check
+
+        color_pieces = self.occupied_co[color]
+
+        if (BB_KING_ATTACKS[square] & self.kings) & color_pieces:
+            return True
+
+        if (BB_KNIGHT_ATTACKS[square] & self.knights) & color_pieces:
+            return True
+
+        if (BB_PAWN_ATTACKS[not color][square] & self.pawns) & color_pieces:
+            return True
+
+        occupied = self.occupied
+        rank_pieces = BB_RANK_MASKS[square] & occupied
+        file_pieces = BB_FILE_MASKS[square] & occupied
+
+        queens_and_rooks = self.queens | self.rooks
+
+        if ((BB_RANK_ATTACKS[square][rank_pieces]|BB_FILE_ATTACKS[square][file_pieces]) & queens_and_rooks) & color_pieces:
+            return True
+
+        diag_pieces = BB_DIAG_MASKS[square] & occupied
+        queens_and_bishops = self.queens | self.bishops
+
+        if (BB_DIAG_ATTACKS[square][diag_pieces] & queens_and_bishops) & color_pieces:
+            return True
+
+        return False
+
     def attacks_mask(self, square):
         bb_square = BB_SQUARES[square]
 
