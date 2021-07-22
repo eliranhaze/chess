@@ -614,11 +614,15 @@ class Engine(object):
             return True
         return False
 
-    def _gen_quiesce_moves(self):
+    def _sorted_q_moves(self):
         qs_moves = [
             m for m in self.board.legal_moves
             if (self.board.is_capture(m) and not self._skip_qs_move(m)) or m.promotion == QUEEN or self._is_move_check(m)
         ]
+        return sorted(qs_moves, key = self._mvv_lva_sort)
+
+    def _gen_quiesce_moves(self):
+        qs_moves = self._sorted_q_moves()
         # NOTE: probing tt move here was not found to be of much help
         self.q_all_moves += len(qs_moves)
         for move in sorted(qs_moves, key = self._mvv_lva_sort):
