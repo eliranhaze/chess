@@ -50,8 +50,9 @@ def timing_report():
 def inject_timing():
     # note: doesn't work well with recursive functions such as quiescence and negamax
     e.is_checkmate = timing(e.is_checkmate)
-    e._move_sortkey = timing(e._move_sortkey)
+    #e._move_sortkey = timing(e._move_sortkey)
     e._is_move_check = timing(e._is_move_check)
+    e._make_move = timing(e._make_move)
 
 inject_timing()
 
