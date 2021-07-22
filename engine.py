@@ -617,7 +617,7 @@ class Engine(object):
     def _sorted_q_moves(self):
         qs_moves = [
             m for m in self.board.legal_moves
-            if (self.board.is_capture(m) and not self._skip_qs_move(m)) or m.promotion == QUEEN or self._is_move_check(m)
+            if (self.board.is_capture(m) and not self._skip_qs_move(m)) or m.promotion == QUEEN or self.board.gives_check(m)
         ]
         return sorted(qs_moves, key = self._mvv_lva_sort)
 
@@ -831,7 +831,7 @@ class Engine(object):
             yield top_move
         # only checks and promotions - no move ordering as there should be only a few moves
         for move in self.board.legal_moves:
-            if move != top_move or move.promotion == QUEEN or self._is_move_check(move):
+            if move != top_move or move.promotion == QUEEN or self.board.gives_check(move):
                 yield move
 
     def _negamax(self, depth, ply, alpha, beta, can_null = True):
@@ -898,7 +898,7 @@ class Engine(object):
             self.ply = ply
 
             # late move reduction - params are not optimized but this works well
-            if move_count >= 4 and depth >= 3 and move != self.killers[ply] and not move.promotion and not self.board.is_capture(move) and not self.board.is_check() and not self._is_move_check(move):
+            if move_count >= 4 and depth >= 3 and move != self.killers[ply] and not move.promotion and not self.board.is_capture(move) and not self.board.is_check() and not self.board.gives_check(move):
                 R = 2
                 if move_count >= 10 and depth >= 4:
                     R = 3
@@ -1068,9 +1068,8 @@ class Engine(object):
             return self.evals[board_hash]
 
         # check stalemate and insiffucient material - but only during endgame
-        if self.endgame:
-            if self.board.is_stalemate() or self.board.is_insufficient_material():
-                return 0
+        if self._is_draw():
+            return 0
         
         # main evaluation
         ev = self._piece_eval(WHITE) - self._piece_eval(BLACK)
@@ -1089,6 +1088,9 @@ class Engine(object):
         self.evals[board_hash] = ev
 
         return ev
+
+    def _is_draw(self):
+        return self.endgame and (self.board.is_stalemate() or self.board.is_insufficient_material())
 
     def _piece_eval(self, color):
         o = self.board.occupied_co[color]
@@ -1268,12 +1270,6 @@ class Engine(object):
         attackers = self.board.attackers(not color, piece)
         defenders = self.board.attackers(color, piece)
         return len(attackers) > len(defenders) or len(defenders) == 0
-
-    def _is_move_check(self, move):
-        self.board.push(move)
-        check = self.board.is_check()
-        self.board.pop()
-        return check
 
     def _bb_count(self, x):
         x = (x & 0x5555555555555555) + ((x >> 1) & 0x5555555555555555)
