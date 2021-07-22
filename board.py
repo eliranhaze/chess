@@ -228,7 +228,7 @@ class Board(chess.Board):
         self.turn = not self.turn
         return piece_type
 
-    def _to_chess960(self, move: Move) -> Move:
+    def _to_chess960(self, move):
         if move.from_square == E1 and self.kings & BB_E1:
             if move.to_square == G1 and not self.rooks & BB_G1:
                 return Move(E1, H1)
@@ -411,9 +411,8 @@ class Board(chess.Board):
                 return True
 
         # Generate castling moves.
-        if from_mask & self.kings:
-            if any(self.generate_castling_moves()):
-                return True
+        if any(self.generate_castling_moves()):
+            return True
 
         # The remaining moves are all pawn moves.
         pawns = self.pawns & our_pieces
@@ -425,7 +424,7 @@ class Board(chess.Board):
         for from_square in scan_reversed(capturers):
             targets = (
                 BB_PAWN_ATTACKS[self.turn][from_square] &
-                self.occupied_co[not self.turn] & to_mask)
+                self.occupied_co[not self.turn])
 
             if targets:
                 return True
