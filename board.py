@@ -1,5 +1,6 @@
 import chess
 
+between = chess.between
 msb = chess.msb
 scan_reversed = chess.scan_reversed
 square_file = chess.square_file
@@ -224,3 +225,44 @@ class Board(chess.Board):
                 return Move(E8, C8)
         return Move(from_square, to_square, promotion, drop)
 
+    def generate_legal_moves(self, from_mask = BB_ALL, to_mask = BB_ALL):
+        king_mask = self.kings & self.occupied_co[self.turn]
+        king = msb(king_mask)
+        blockers = self._slider_blockers(king)
+        checkers = self.attackers_mask(not self.turn, king)
+        if checkers:
+            for move in self._generate_evasions(king, checkers, from_mask, to_mask):
+                if self._is_safe(king, blockers, move):
+                    yield move
+        else:
+            for move in self.generate_pseudo_legal_moves(from_mask, to_mask):
+                if self._is_safe(king, blockers, move):
+                    yield move
+
+    def generate_castling_moves(self, from_mask = BB_ALL, to_mask = BB_ALL):
+        backrank = BB_RANK_1 if self.turn == WHITE else BB_RANK_8
+        king = self.occupied_co[self.turn] & self.kings & backrank & from_mask
+        king = king & -king
+        if not king:
+            return
+
+        bb_c = BB_FILE_C & backrank
+        bb_d = BB_FILE_D & backrank
+        bb_f = BB_FILE_F & backrank
+        bb_g = BB_FILE_G & backrank
+
+        king_sq = msb(king)
+        for candidate in scan_reversed(self.clean_castling_rights() & backrank & to_mask):
+            rook = BB_SQUARES[candidate]
+
+            a_side = rook < king
+            king_to = bb_c if a_side else bb_g
+            rook_to = bb_d if a_side else bb_f
+
+            king_path = between(king_sq, msb(king_to))
+            rook_path = between(candidate, msb(rook_to))
+
+            if not ((self.occupied ^ king ^ rook) & (king_path | rook_path | king_to | rook_to) or
+                    self._attacked_for_king(king_path | king, self.occupied ^ king) or
+                    self._attacked_for_king(king_to, self.occupied ^ king ^ rook ^ rook_to)):
+                yield self._from_chess960(self.chess960, king_sq, candidate)
