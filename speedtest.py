@@ -55,6 +55,7 @@ def inject_timing():
     e._search_root = timing(e._search_root)
     e._evaluate_board = timing(e._evaluate_board)
     e._sorted_moves = timing(e._sorted_moves)
+    e._sorted_q_moves = timing(e._sorted_q_moves)
 
 inject_timing()
 
