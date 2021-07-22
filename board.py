@@ -1,5 +1,4 @@
 import chess
-import dataclasses
 
 between = chess.between
 msb = chess.msb
@@ -105,7 +104,6 @@ class Board(chess.Board):
         return attackers & self.occupied_co[color]
 
     def is_attacked_by(self, color, square):
-        # can just call this for is_check
 
         color_pieces = self.occupied_co[color]
 
@@ -158,9 +156,6 @@ class Board(chess.Board):
         return 0
 
     def push(self, move):
-        """ pushes move and returns moving piece type """
-        # TODO: sanity check, comparison with Board.push - compare board state
-
         board_state = self._board_state()
         self.castling_rights = self.clean_castling_rights()  # Before pushing stack
         self.move_stack.append(move)
@@ -257,7 +252,6 @@ class Board(chess.Board):
 
         # Swap turn.
         self.turn = not self.turn
-        return piece_type
 
     def _to_chess960(self, move):
         if move.from_square == E1 and self.kings & BB_E1:
