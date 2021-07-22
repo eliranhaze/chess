@@ -43,6 +43,8 @@ BB_C8 = chess.BB_C8
 BB_E8 = chess.BB_E8
 BB_G8 = chess.BB_G8
 BB_H8 = chess.BB_H8
+BB_AH1 = (BB_A1 | BB_H1)
+BB_AH8 = (BB_A8 | BB_H8)
 
 A1 = chess.A1
 C1 = chess.C1
@@ -126,6 +128,7 @@ class Board(chess.Board):
         piece_type = self._remove_piece_at(move.from_square)
 
         # Update castling rights.
+        # note: castling rights is simply the disjuction of rooks that are eligible for castling
         self.castling_rights &= ~to_bb & ~from_bb
 
         # Handle castling.
@@ -224,6 +227,33 @@ class Board(chess.Board):
             elif to_square == A8:
                 return Move(E8, C8)
         return Move(from_square, to_square, promotion, drop)
+
+    
+    def clean_castling_rights(self):
+        """
+        Returns valid castling rights filtered from
+        :data:`~chess.Board.castling_rights`.
+        """
+        if self._stack:
+            # No new castling rights are assigned in a game, so we can assume
+            # they were filtered already.
+            return self.castling_rights
+
+        castling = self.castling_rights & self.rooks
+        white_castling = castling & BB_RANK_1 & self.occupied_co[WHITE]
+        black_castling = castling & BB_RANK_8 & self.occupied_co[BLACK]
+
+        # The rooks must be on a1, h1, a8 or h8.
+        white_castling &= BB_AH1
+        black_castling &= BB_AH8
+
+        # The kings must be on e1 or e8.
+        if not self.occupied_co[WHITE] & self.kings & BB_E1:
+            white_castling = 0
+        if not self.occupied_co[BLACK] & self.kings & BB_E8:
+            black_castling = 0
+
+        return white_castling | black_castling
 
     def generate_legal_moves(self, from_mask = BB_ALL, to_mask = BB_ALL):
         king_mask = self.kings & self.occupied_co[self.turn]
