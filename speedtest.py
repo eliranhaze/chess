@@ -41,18 +41,20 @@ def timing(f):
     return wrap
 
 def timing_report():
+    global total_time
     print('-'*6)
-    total_t = sum(t for _, (t, _) in ftimes.items())
     for fname, (t, count) in ftimes.items():
-        print('%s: %.2fs [%.1f%%]  %d x %.2fus' % (fname, t, 100*t/total_t, count, 1000000*t/count))
+        print('%s: %.2fs [%.1f%%]  %d x %.2fus' % (fname, t, 100*t/total_time, count, 1000000*t/count))
     print()
 
 def inject_timing():
     # note: doesn't work well with recursive functions such as quiescence and negamax
     e.is_checkmate = timing(e.is_checkmate)
-    #e._move_sortkey = timing(e._move_sortkey)
     e._is_move_check = timing(e._is_move_check)
     e._make_move = timing(e._make_move)
+    e._search_root = timing(e._search_root)
+    e._evaluate_board = timing(e._evaluate_board)
+    e._sorted_moves = timing(e._sorted_moves)
 
 inject_timing()
 

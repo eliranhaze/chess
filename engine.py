@@ -557,6 +557,9 @@ class Engine(object):
             yielded.add(max_m)
             moves.pop(max_m)
 
+    def _sorted_moves(self):
+        return sorted(self.board.legal_moves, key = self._move_sortkey)
+
     def _gen_moves(self):
         self.move_hits += 1
         board_hash = self._get_hash()
@@ -565,7 +568,7 @@ class Engine(object):
             self.top_hits += 1
             self.used_moves += 1
             yield top_move
-        moves = sorted(self.board.legal_moves, key = self._move_sortkey)
+        moves = self._sorted_moves()
         self.all_moves += len(moves)
         for move in moves:
             if move != top_move: # don't re-search top move
