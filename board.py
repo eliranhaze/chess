@@ -287,8 +287,7 @@ class Board(chess.Board):
         return self.generate_legal_moves()
 
     def generate_legal_moves(self, from_mask = BB_ALL, to_mask = BB_ALL):
-        king_mask = self.kings & self.occupied_co[self.turn]
-        king = msb(king_mask)
+        king = self.king(self.turn)
         blockers = self._slider_blockers(king)
         checkers = self.attackers_mask(not self.turn, king)
         if checkers:
@@ -400,3 +399,56 @@ class Board(chess.Board):
             result += [m for m in self.generate_pseudo_legal_ep(from_mask, to_mask)]
 
         return result
+
+    def has_any_pseudo_legal_moves(self):
+        our_pieces = self.occupied_co[self.turn]
+
+        # Generate piece moves.
+        non_pawns = our_pieces & ~self.pawns
+        for from_square in scan_reversed(non_pawns):
+            moves = self.attacks_mask(from_square) & ~our_pieces
+            if moves:
+                return True
+
+        # Generate castling moves.
+        if from_mask & self.kings:
+            if any(self.generate_castling_moves()):
+                return True
+
+        # The remaining moves are all pawn moves.
+        pawns = self.pawns & our_pieces
+        if not pawns:
+            return False
+
+        # Generate pawn captures.
+        capturers = pawns
+        for from_square in scan_reversed(capturers):
+            targets = (
+                BB_PAWN_ATTACKS[self.turn][from_square] &
+                self.occupied_co[not self.turn] & to_mask)
+
+            if targets:
+                return True
+
+        # Prepare pawn advance generation.
+        if self.turn == WHITE:
+            single_moves = pawns << 8 & ~self.occupied
+            double_moves = single_moves << 8 & ~self.occupied & BB_RANK_3_4
+        else:
+            single_moves = pawns >> 8 & ~self.occupied
+            double_moves = single_moves >> 8 & ~self.occupied & BB_RANK_5_6
+
+
+        if single_moves or double_moves:
+            return True
+
+        if self.ep_square and any(self.generate_pseudo_legal_ep()):
+            return True
+        
+        return False
+
+    def is_stalemate(self):
+        if self.is_check():
+            return False
+
+        return not self.has_any_pseudo_legal_moves()
