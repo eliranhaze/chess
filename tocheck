@@ -14,16 +14,31 @@ currently:
 	- didn't seem promising
 [v] SEE - currently running
 	- was about the same, committing anyway
-[_] history heuristic ordering - implemented (engine_history2) and waiting to run
+[v] history heuristic ordering - implemented (engine_history2) and waiting to run
+	- looks good
 [x] -500 vs -10000 killer value
 	- -10000 was found to result in more prunning, but was somehow a bit slower - so check actual games
 	- was slightly worse in testing
+[x] syzygy tb
+	- results inconclusive, not committing for now...
+	- should revisit and recheck later
+	- note also that the tb code doesn't slow down search... so there really should be no downside - with
+	  correct implementation this should be pure elo gain
+	- can also consider the simplest approach first, of just probing at root and filtering any non-optimal moves, and then 
+	  doing search as normal with no probe
+[_] LMR
+	- NOTE: should also not reduce when in PV node, also don't reduce PROMOTIONS
 [_] kp val - remember that this was found to be worse than without - recheck
 
 next:
-- countermove history
-- LMR
-- syzygy tb
-	- see http://talkchess.com/forum3/viewtopic.php?t=64767 on how to use in search
-	- see also ethereal implementation
+-
 
+todo:
+- I should import the generate_legal_moves code to the engine, and use information that is available at move generation
+ such as whether we are in check and whether the move is a capture etc, and use that later on instead of re-calculating - should improve speed.
+	--- NOPE, that was just a waste of time - engine ran slower, not sure why, even though my move generation
+	    seemed to be a bit faster... well...
+- QS when in check - see discussion: http://talkchess.com/forum3/viewtopic.php?f=7&t=47162&start=10
+
+note:
+- all the movegen stuff... everything turns out to be slower... MUCH slower... idk why. even when in ipy it's faster, in speedtest it a lot slower, even when just the move generation is measured

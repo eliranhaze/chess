@@ -462,3 +462,127 @@ avg move depths: 5.07
 avg move times: 0.20
 
 - definitely better!
+
+-----------------
+syzygy tb (branch: syzygy)
+
+Rank Name         Elo    +    - games score oppo. draws 
+   1 engine_dev    12   18   18   250   54%   -12   31% 
+   2 engine       -12   18   18   250   46%    12   31% 
+
+Rank Name                  Elo    +    - games score oppo. draws 
+   1 Cheese 2.2 [1000]    1795   25   25   400   63%  1696   16% 
+   2 engine               1707   21   21   600   54%  1676    9% 
+   3 engine_dev           1685   21   21   600   51%  1676   11% 
+   4 Arasan 22.3 [1400]   1633   25   25   400   42%  1696   12% 
+   5 Stockfish 13 [1600]  1600   26   27   400   39%  1696    3% 
+
+- not better - the search can definitely be improved, e.g. to avoid draws in winning positions, losses in drawn positions, etc.
+- also it doesn't seem that too many draws is an issue...
+
+--------------
+LMR
+
+Rank Name         Elo    +    - games score oppo. draws 
+   1 engine_lmr     2   29   29   100   51%    -2   27% 
+   2 engine        -2   29   29   100   50%     2   27% 
+
+Rank Name                  Elo    +    - games score oppo. draws 
+   1 Cheese 2.2 [1000]    1781   37   35   200   69%  1637   15% 
+   2 engine_lmr           1655   29   29   300   49%  1657   10% 
+   3 Stockfish 13 [1650]  1650   36   36   200   52%  1637    4% 
+   4 engine               1619   30   30   300   45%  1657    6% 
+   5 Arasan 22.3 [1450]   1541   36   37   200   38%  1637    6% 
+
+- seems better - gotta make sure I have the right reduction formula though
+
+full results:
+running 100 games: engine vs engine_lmr [0.17s tpm]
++36 =27 -37
+avg move depths: e1 4.50, e2 4.74
+avg move times: e1 0.17, e2 0.17
+running 100 games: engine vs Stockfish 13 [1650] [0.17s tpm]
++42 =4 -54
+avg move depths: 4.17
+avg move times: 0.17
+running 100 games: engine_lmr vs Stockfish 13 [1650] [0.17s tpm]
++51 =4 -45
+avg move depths: 4.31
+avg move times: 0.17
+running 100 games: engine vs Cheese 2.2 [1000] [0.17s tpm]
++29 =12 -59
+avg move depths: 4.13
+avg move times: 0.17
+running 100 games: engine_lmr vs Cheese 2.2 [1000] [0.17s tpm]
++19 =18 -63
+avg move depths: 4.33
+avg move times: 0.17
+running 100 games: engine vs Arasan 22.3 [1450] [0.17s tpm]
++55 =3 -42
+avg move depths: 4.04
+avg move times: 0.17
+running 100 games: engine_lmr vs Arasan 22.3 [1450] [0.17s tpm]
++63 =8 -29
+avg move depths: 4.29
+avg move times: 0.17
+
+- NOTE: this was not commited
+
+------------
+PST or all pieces + pst bug fix
+
+Rank Name          Elo    +    - games score oppo. draws 
+   1 engine_pst2    20   21   21   200   56%   -20   24% 
+   2 engine        -20   21   21   200   44%    20   24% 
+
+Rank Name                  Elo    +    - games score oppo. draws 
+   1 Cheese 2.2 [1100]    1733   27   27   320   51%  1724   15% 
+   2 engine_pst2          1728   24   24   480   62%  1628    8% 
+   3 engine               1719   24   24   480   61%  1628   10% 
+   4 Stockfish 13 [1650]  1650   29   30   320   41%  1724    3% 
+   5 Arasan 22.3 [1500]   1501   31   32   320   24%  1724    9% 
+
+looking good!
+
+
+--------
+LMR again:
+
+running 300 games: engine vs engine_lmr3 [0.19s tpm]
++88 =106 -106
+avg move depths: e1 5.22, e2 5.77
+avg move times: e1 0.19, e2 0.19
+running 250 games: engine vs Stockfish 13 [1700] [0.19s tpm]
++121 =9 -120
+avg move depths: 4.91
+avg move times: 0.19
+running 250 games: engine_lmr3 vs Stockfish 13 [1700] [0.19s tpm]
++119 =21 -110
+avg move depths: 5.30
+avg move times: 0.19
+
+- NOTE: had a stupid bug where move were double-counting and thus reduced twice as earlier... interesting that it was still better than original version
+
+-------
+LMR, bug fixed:
+
+Rank Name          Elo    +    - games score oppo. draws 
+   1 engine_lmr3    19   17   17   300   56%   -19   26% 
+   2 engine        -19   17   17   300   45%    19   26% 
+
+Rank Name                  Elo    +    - games score oppo. draws 
+   1 engine               1751   22   22   600   70%  1574    7% 
+   2 engine_lmr3          1736   22   21   600   68%  1574    5% 
+   3 Stockfish 13 [1700]  1700   20   20   600   45%  1744    5% 
+   4 Arasan 22.3 [1550]   1447   23   25   600   17%  1744    7%
+
+-- running 200 more games againt each SF/AR which giving them a bit more time
+
+Rank Name                  Elo    +    - games score oppo. draws 
+   1 engine_lmr3          1807   28   27   400   78%  1562    6% 
+   2 engine               1739   26   25   400   71%  1562    8% 
+   3 Stockfish 13 [1600]  1600   25   26   400   30%  1773    4% 
+   4 Arasan 22.3 [1600]   1523   27   28   400   21%  1773   10% 
+
+-- looking good. also i noticed that i limited depth to 12 which may have been hindering the lmr version a bit in endgames... (both version had average time lower than limit which must mean that they have been hitting the limit once in a while)
+-- lmr params are not optimized, but committing for now
