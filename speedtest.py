@@ -48,14 +48,15 @@ MOVE_TIME_LIMIT = args.move_time
 DETAIL = args.detail
 TIMING = args.timing
 
+TIMES = {}
 def timing(f):
     def wrap(*args, **kwargs):
         t0 = time.time()
         ret = f(*args, **kwargs)
         t = time.time() - t0
         fname = f.__name__
-        cur_times, cur_count = ftimes.get(fname, (0,0))
-        ftimes[fname] = (cur_times + t, cur_count + 1)
+        cur_times, cur_count = TIMES.get(fname, (0,0))
+        TIMES[fname] = (cur_times + t, cur_count + 1)
         return ret
     return wrap
 
@@ -76,8 +77,6 @@ class Speedtest:
     total_all_moves = 0
     total_used_moves = 0
     total_used_q_moves = 0
-
-    ftimes = {}
 
     def run(self):
         print('------')
@@ -100,16 +99,16 @@ class Speedtest:
 
     def timing_report(self):
         print('-'*6)
-        for fname, (t, count) in self.ftimes.items():
+        for fname, (t, count) in TIMES.items():
             print('%s: %.2fs [%.1f%%]  %d x %.2fus' % (fname, t, 100*t/self.total_time, count, 1000000*t/count))
         print()
 
     def inject_timing(self):
         # note: doesn't work well with recursive functions such as quiescence and negamax
-        engine.Board.is_stalemate = timing(engine.Board.is_stalemate)
+        ENGINE.Board.is_stalemate = timing(ENGINE.Board.is_stalemate)
+        e = self.e
         e.is_checkmate = timing(e.is_checkmate)
         e._is_draw = timing(e._is_draw)
-        e._is_move_check = timing(e._is_move_check)
         e._make_move = timing(e._make_move)
         e._search_root = timing(e._search_root)
         e._evaluate_board = timing(e._evaluate_board)
