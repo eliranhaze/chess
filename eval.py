@@ -94,6 +94,7 @@ class EvalBoard(Board):
     endgame = False
     evals = {}
     p_hash = [[{},{}],[{},{}]]
+    pp_hash = [[{},{}],[{},{}]]
     n_hash = [[{},{}],[{},{}]]
     r_hash = [[{},{}],[{},{}]]
     b_hash = [[{},{}],[{},{}]]
@@ -157,17 +158,23 @@ class EvalBoard(Board):
                     p_val += MG_PAWN_SQ_TABLE[color][sq]
             p_hash[pawns] = p_val
 
+        pp_hash = self.pp_hash[color][self.endgame]
         their_pawns = self.pawns & self.occupied_co[not color]
-        for i in scan_forward(pawns):
-            stoppers = PAWN_STOPPERS[color][i]
-            if not (stoppers & their_pawns):
-                # passed pawn
-                relative_rank = square_rank(i) if color else 7 - square_rank(i)
-                # TODO: bigger bonus in endgame
-                # can also try hashing with enemy pawns, but gotta check hit rate and table size for that
-                bonus = int(12 * (relative_rank/2))
-                p_val += bonus
-
+        pp_key = (pawns, their_pawns)
+        if pp_key in pp_hash:
+            passed_eval = pp_hash[pp_key]
+        else:
+            passed_eval = 0
+            for i in scan_forward(pawns):
+                stoppers = PAWN_STOPPERS[color][i]
+                if not (stoppers & their_pawns):
+                    # passed pawn
+                    relative_rank = square_rank(i) if color else 7 - square_rank(i)
+                    # TODO: bigger bonus in endgame
+                    bonus = int(12 * (relative_rank/2))
+                    passed_eval += bonus
+            pp_hash[pp_key] = passed_eval
+        p_val += passed_eval
         return p_val
 
     def knight_eval(self, knights, color):
