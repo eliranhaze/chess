@@ -91,15 +91,17 @@ PAWN_STOPPERS = init_pawn_stoppers()
 
 class EvalBoard(Board):
 
-    endgame = False
-    evals = {}
-    p_hash = [[{},{}],[{},{}]]
-    pp_hash = [[{},{}],[{},{}]]
-    n_hash = [[{},{}],[{},{}]]
-    r_hash = [[{},{}],[{},{}]]
-    b_hash = [[{},{}],[{},{}]]
-    q_hash = [[{},{}],[{},{}]]
-    kp_hash = {} # TODO: change to be like the other ones
+    def __init__(self, *arg, **kw):
+        super().__init__(*arg, **kw)
+        self.endgame = False
+        self.evals = {}
+        self.p_hash = [[{},{}],[{},{}]]
+        self.pp_hash = [[{},{}],[{},{}]]
+        self.n_hash = [[{},{}],[{},{}]]
+        self.r_hash = [[{},{}],[{},{}]]
+        self.b_hash = [[{},{}],[{},{}]]
+        self.q_hash = [[{},{}],[{},{}]]
+        self.kp_hash = {} # TODO: change to be like the other ones
 
     def evaluate(self):
 
