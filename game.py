@@ -4,7 +4,7 @@ import chess.pgn
 import random
 import time
 
-from engine import Engine
+from engine import Engine, Board
 
 class Player(object):
 
@@ -85,7 +85,7 @@ class EnginePlayer(Player):
 class Game(object):
 
     def __init__(self, white: Player, black: Player, move_time: float):
-        self.board = chess.Board()
+        self.board = Board()
         self.white = white
         self.black = black
         self.move_time = move_time
@@ -203,7 +203,7 @@ class GameSeries(object):
         return '+%d =%d -%d' % tuple(wdl)
 
     def _opening_string(self, o):
-        board = chess.Board()
+        board = Board()
         sans = []
         for move in o:
             sans.append(board.san(move))
