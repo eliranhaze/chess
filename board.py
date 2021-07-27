@@ -262,8 +262,9 @@ class Board(chess.Board):
 
     def pop(self):
         self._hash = None
-        self.move_stack.pop()
+        move = self.move_stack.pop()
         self._stack.pop().restore(self)
+        return move
 
     def _to_chess960(self, move):
         if move.from_square == E1 and self.kings & BB_E1:
