@@ -599,3 +599,31 @@ avg move depths: e1 5.45, e2 5.41
 avg move times: e1 0.17, e2 0.17
 (-5 ks)
 but was worse against stockfish, again
+
+
+---------
+passed pawn, bonus as below
+
+400 games: engine vs engine_passed
++123 =118 -159
+avg move depths: e1 5.97, e2 5.89
+avg move times: e1 0.17, e2 0.17
+- passed pawns: bonus = int(12 * (relative_rank/2))
+ 
+vs Stockfish 13 [1650] [0.18s tpm]:
++106 =15 -79
+avg move depths: 5.70
++115 =6 -79
+avg move depths: 5.57
+ 
+Rank Name            Elo    +    - games score oppo. draws 
+   1 engine_passed    16   15   15   400   55%   -16   30% 
+   2 engine          -16   15   15   400   46%    16   30% 
+ 
+Rank Name                  Elo    +    - games score oppo. draws 
+   1 engine_passed        1720   27   26   400   70%  1543    5% 
+   2 engine               1712   26   25   400   70%  1543    9% 
+   3 Stockfish 13 [1650]  1650   24   25   400   42%  1716    5% 
+   4 Arasan 22.3 [1600]   1436   28   30   400   18%  1716    8% 
+
+-- seems good, committing
