@@ -5,6 +5,7 @@ from square_tables import *
 
 msb = chess.msb
 scan_forward = chess.scan_forward
+square_rank = chess.square_rank
 
 WHITE = chess.WHITE
 BLACK = chess.BLACK
@@ -46,11 +47,51 @@ KNIGHT_ATTACK_TABLE = [
 ]
 SQUARE_VALUE = 10 # value for each square attacked by a piece
 
+def init_pawn_stoppers():
+
+    b_pawn_stoppers = [0] * 64 # black
+    for sq in range(16,56):
+        sqs = []
+        sfile = chess.square_file(sq)
+        for i in range(1,6):
+            infront = sq-(i*8)
+            if infront < 8:
+                continue
+            sqs.append(infront)
+            if sfile < 7:
+                sqs.append(infront+1)
+            if sfile > 0:
+                sqs.append(infront-1)
+        sqs_mask = 0
+        for s in sqs:
+            sqs_mask |= chess.BB_SQUARES[s]
+        b_pawn_stoppers[sq] = sqs_mask
+
+    pawn_stoppers = [0] * 64 # white
+    for sq in range(8,48):
+        sqs = []
+        sfile = chess.square_file(sq)
+        for i in range(1,6):
+            infront = sq+(i*8)
+            if infront >= 56:
+                continue
+            sqs.append(infront)
+            if sfile < 7:
+                sqs.append(infront+1)
+            if sfile > 0:
+                sqs.append(infront-1)
+        sqs_mask = 0
+        for s in sqs:
+            sqs_mask |= chess.BB_SQUARES[s]
+        pawn_stoppers[sq] = sqs_mask
+
+    return [b_pawn_stoppers, pawn_stoppers]
+
+PAWN_STOPPERS = init_pawn_stoppers()
+
 class EvalBoard(Board):
 
     endgame = False
-    num_evals = 0
-    hash_hits = 0
     evals = {}
     p_hash = [[{},{}],[{},{}]]
     n_hash = [[{},{}],[{},{}]]
@@ -61,12 +102,9 @@ class EvalBoard(Board):
 
     def evaluate(self):
 
-    #    self.num_evals += 1
-   
         # return evaluation from transposition table if exists
         board_hash = self.get_hash()
         if board_hash in self.evals:
-    #        self.hash_hits += 1
             return self.evals[board_hash]
 
         # check stalemate and insiffucient material - but only during endgame
@@ -75,13 +113,6 @@ class EvalBoard(Board):
     
         # main evaluation
         ev = self.piece_eval(WHITE) - self.piece_eval(BLACK)
-
-        # TODO: some more things to consider:
-            # - double/passed/other pawn stuff
-            # - pins (but might be expensive)
-            # - bishop pair
-            # - attacked/defended pieces
-            # - king safety
 
         # for negamax, evaluation must always be from the perspective of the current player
         ev = ev * (-1,1)[self.turn]
@@ -125,6 +156,18 @@ class EvalBoard(Board):
                 for sq in scan_forward(pawns):
                     p_val += MG_PAWN_SQ_TABLE[color][sq]
             p_hash[pawns] = p_val
+
+        their_pawns = self.pawns & self.occupied_co[not color]
+        for i in scan_forward(pawns):
+            stoppers = PAWN_STOPPERS[color][i]
+            if not (stoppers & their_pawns):
+                # passed pawn
+                relative_rank = square_rank(i) if color else 7 - square_rank(i)
+                # TODO: bigger bonus in endgame
+                # can also try hashing with enemy pawns, but gotta check hit rate and table size for that
+                bonus = int(12 * (relative_rank/2))
+                p_val += bonus
+
         return p_val
 
     def knight_eval(self, knights, color):
