@@ -8,8 +8,7 @@ import time
 from collections import namedtuple
 from IPython.display import SVG, display
 
-#from evaluate import Evaluator
-from board import Board
+from eval import EvalBoard as Board
 
 Entry = namedtuple('Entry', ['val', 'type', 'depth'])
 # Entry types
@@ -264,12 +263,10 @@ class Engine(object):
         self.time_record = []
         #self.evaluator = Evaluator()
         if self.Z_HASHING:
-            self._get_hash = self._get_hash_z
             self._make_move = self._make_move_z
             self._unmake_move = self._unmake_move_z
             self._init_z_table()
         else:
-            self._get_hash = self._get_hash_default
             self._make_move = self._make_move_default
             self._unmake_move = self._unmake_move_default
 
@@ -293,7 +290,6 @@ class Engine(object):
         self.book = self.BOOK
         self.endgame = False
         self.resigned = False
-        self._hash = None
         self.move_evals = []
         self.evals = {}
         self.top_moves = {}
@@ -357,7 +353,6 @@ class Engine(object):
 
     def play(self, player_color = chess.WHITE, board = None):
         self.board = board if board else Board()
-        self._get_hash() # for init
         self.player_color = player_color
         self.color = not self.player_color
         tt = 0
@@ -429,8 +424,6 @@ class Engine(object):
             try:
                 move = input('your move: ')
                 self.board.push_san(move)
-                if self.Z_HASHING:
-                    self._hash = self._board_hash() # instead of make_move
                 break
             except ValueError:
                 print('illegal move: %s' % move)
@@ -441,7 +434,6 @@ class Engine(object):
         self.color = color
 
     def play_move(self):
-        self._hash = None
         move = self._select_move()
         return move
 
@@ -508,7 +500,7 @@ class Engine(object):
         if best_move is None:
             # if we timed out before completely searching one root move then
             # see if there's a tt move, and if not just choose the best eval move
-            board_hash = self._get_hash()
+            board_hash = self.board.get_hash()
             if board_hash in self.top_moves:
                 best_move = self.top_moves[board_hash]
             else:
@@ -516,8 +508,10 @@ class Engine(object):
         return best_move, move_eval
 
     def _check_endgame(self):
+        self.board.endgame = self.endgame
         if not self.endgame:
             self.endgame = all(self._material_count(color) <= 1300 for color in chess.COLORS)
+            self.board.endgame = self.endgame
             if self.endgame:
                 pass
                 #print('--- ENDGAME HAS BEGUN ---')
@@ -562,7 +556,7 @@ class Engine(object):
 
     def _gen_moves(self):
         self.move_hits += 1
-        board_hash = self._get_hash()
+        board_hash = self.board.get_hash()
         top_move = self.top_moves.get(board_hash)
         if top_move:
             self.top_hits += 1
@@ -667,7 +661,7 @@ class Engine(object):
 
         # probe tt: increases speed somewhat - in most cases just a bit
         orig_alpha = alpha
-        board_hash = self._get_hash()
+        board_hash = self.board.get_hash()
         entry = self.tp.get(board_hash)
         if entry:
             val = entry.val
@@ -695,7 +689,7 @@ class Engine(object):
         if self.is_checkmate():
             stand_pat = -self.MATE_SCORE
         else:
-            stand_pat = self._evaluate_board()
+            stand_pat = self.board.evaluate()
         # TODO: test with a margin here instead, e.g., maybe cutoff if we're at 198 and beta is 200... could 
         # speed things up without real loss, and the speed might be worth it
         if stand_pat >= beta:
@@ -738,14 +732,14 @@ class Engine(object):
             score = -self._quiesce(-beta, -alpha)
             self._unmake_move(move, piece_from, piece_to)
             if score >= beta:
-                self.top_moves[self._get_hash()] = move
+                self.top_moves[self.board.get_hash()] = move
                 entry = Entry(beta, LOWER, 0)
                 self.tp[board_hash] = entry
                 return beta
             if score > alpha:
                 alpha = score
                 # not fully sure that this is sound, since in QS we're not searching all moves
-                self.top_moves[self._get_hash()] = move
+                self.top_moves[self.board.get_hash()] = move
 
         # TODO: FIXME: this condition should be removed - this is probably the same thing as in 
         #              negamax that i fixed - gotta store alpha/beta not score if not exact
@@ -774,7 +768,7 @@ class Engine(object):
         self.time_over = False
         self.ply = 0
 
-        board_hash = self._get_hash()
+        board_hash = self.board.get_hash()
         best_move = None
         best_value = -self.INF
         alpha = -self.INF
@@ -825,7 +819,7 @@ class Engine(object):
 
     def _gen_checks(self): 
         self.move_hits += 1
-        top_move = self.top_moves.get(self._get_hash())
+        top_move = self.top_moves.get(self.board.get_hash())
         if top_move:
             self.top_hits += 1
             yield top_move
@@ -843,7 +837,7 @@ class Engine(object):
         self.ply = ply
 
         orig_alpha = alpha
-        board_hash = self._get_hash()
+        board_hash = self.board.get_hash()
         entry = self.tp.get(board_hash)
         if entry and entry.depth >= depth:
             if self.board.is_repetition(count = 3):
@@ -885,7 +879,7 @@ class Engine(object):
         gen_moves = self._gen_moves
         if depth < 4:
             max_pos_gain = 120 * depth
-            e = self._evaluate_board()
+            e = self.board.evaluate()
             if e + max_pos_gain < alpha:
                 gen_moves = self._gen_quiesce_moves
                 if e + self._max_opponent_piece_value() + max_pos_gain < alpha:
@@ -1057,172 +1051,6 @@ class Engine(object):
                 table.clear()
                 gc.collect()
 
-    def _evaluate_board(self):
-
-        self.ev += 1
-    
-        # return evaluation from transposition table if exists
-        board_hash = self._get_hash()
-        if board_hash in self.evals:
-            self.tt += 1
-            return self.evals[board_hash]
-
-        # check stalemate and insiffucient material - but only during endgame
-        if self._is_draw():
-            return 0
-        
-        # main evaluation
-        ev = self._piece_eval(WHITE) - self._piece_eval(BLACK)
-
-        # TODO: some more things to consider:
-            # - double/passed/other pawn stuff
-            # - pins (but might be expensive)
-            # - bishop pair
-            # - attacked/defended pieces
-            # - king safety
-
-        # for negamax, evaluation must always be from the perspective of the current player
-        ev = ev * (-1,1)[self.board.turn]
-
-        # store evaluation
-        self.evals[board_hash] = ev
-
-        return ev
-
-    def _is_draw(self):
-        return self.endgame and (self.board.is_stalemate() or self.board.is_insufficient_material())
-
-    def _piece_eval(self, color):
-        o = self.board.occupied_co[color]
-        pawns = self.board.pawns & o
-        knights = self.board.knights & o
-        bishops = self.board.bishops & o
-        rooks = self.board.rooks & o
-        queens = self.board.queens & o
-
-        p_hash = self.p_hash[color][self.endgame]
-        if pawns in p_hash:
-            p_val = p_hash[pawns]
-        else:
-            p_val = self.PIECE_VALUES[PAWN] * self._bb_count(pawns)
-            # check for double pawns
-            for fl in BB_FILES:
-                p_count = self._bb_count(pawns & fl)
-                if p_count > 1:
-                    p_val -= (p_count-1) * 15
-            # NOTE:... currently endgame is only checked at start of search, but of course
-            #       during search a node might turn into an endgame... so we need to test endgame once at start of eval
-            #       at least if not self.endgame
-            # TODO this ... or just do tapered eval
-            if self.endgame:
-                for sq in scan_forward(pawns):
-                    p_val += self.EG_PAWN_SQ_TABLE[color][sq]
-            else:
-                for sq in scan_forward(pawns):
-                    p_val += self.MG_PAWN_SQ_TABLE[color][sq]
-            p_hash[pawns] = p_val
-
-        n_hash = self.n_hash[color][self.endgame]
-        if knights in n_hash:
-            n_val = n_hash[knights]
-        else:
-            n_val = self.PIECE_VALUES[KNIGHT] * self._bb_count(knights)
-            for sq in scan_forward(knights):
-                n_val += self.KNIGHT_ATTACK_TABLE[sq] * self.SQUARE_VALUE
-                if self.endgame:
-                    n_val += self.EG_KNIGHT_SQ_TABLE[color][sq]
-                else:
-                    n_val += self.MG_KNIGHT_SQ_TABLE[color][sq]
-            n_hash[knights] = n_val
-
-        r_hash = self.r_hash[color][self.endgame]
-        if rooks in r_hash:
-            r_val = r_hash[rooks]
-        else:
-            r_val = self.PIECE_VALUES[ROOK] * self._bb_count(rooks)
-            for sq in scan_forward(rooks):
-                if self.endgame:
-                    r_val += self.EG_ROOK_SQ_TABLE[color][sq]
-                else:
-                    r_val += self.MG_ROOK_SQ_TABLE[color][sq]
-            r_hash[rooks] = r_val
-
-        b_hash = self.b_hash[color][self.endgame]
-        if bishops in b_hash:
-            b_val = b_hash[bishops]
-        else:
-            num_bishops = self._bb_count(bishops)
-            b_val = self.PIECE_VALUES[BISHOP] * num_bishops
-            if num_bishops == 2:
-                # bishop pair bonus
-                b_val += 50
-            for sq in scan_forward(bishops):
-                if self.endgame:
-                    b_val += self.EG_BISHOP_SQ_TABLE[color][sq]
-                else:
-                    b_val += self.MG_BISHOP_SQ_TABLE[color][sq]
-            b_hash[bishops] = b_val
-
-        q_hash = self.q_hash[color][self.endgame]
-        if queens in q_hash:
-            q_val = q_hash[queens]
-        else:
-            q_val = self.PIECE_VALUES[QUEEN] * self._bb_count(queens)
-            for sq in scan_forward(queens):
-                if self.endgame:
-                    q_val += self.EG_QUEEN_SQ_TABLE[color][sq]
-                else:
-                    q_val += self.MG_QUEEN_SQ_TABLE[color][sq]
-            q_hash[queens] = q_val
-
-        king_sq = (self.board.kings & o).bit_length() - 1
-        kp_val = self._king_pawns_eval(king_sq, pawns, color)
-
-        e = p_val + n_val  + b_val + r_val + q_val + kp_val
-
-        # NOTE: optimized for pypy: for loops are faster than sum in pypy3 - in python3 it's the other way around
-
-        for i in scan_forward(bishops | rooks | queens):
-            e += self._bb_count(self.board.attacks_mask(i)) * self.SQUARE_VALUE
-
-        if self.endgame:
-            e += self.EG_KING_SQ_TABLE[color][king_sq]
-        else:
-            e += self.MG_KING_SQ_TABLE[color][king_sq]
-
-        # need also to compute defense value as below -- might be very easy&fast using the attacks mask from above
-        return e
-
-    def _king_pawns_eval(self, king_sq, pawns, color):
-        # TODO: perhaps also give small bonus for any other pieces sheltering king
-        #       can just intersect them with KING_SURROUNDING_SQUARES - but not here, as this hashes
-        #       only kings and pawns
-        # TODO: perhaps a better idea - penalty for attacking pieces
-        if not king_sq in self.KING_SHELTER_SQUARES[color] or self.endgame:
-            return 0
-        kp_key = (king_sq, pawns)
-        if kp_key in self.kp_hash:
-            return self.kp_hash[kp_key]
-        # king is in shelter position, calculate pawn shield bonus
-        pawn_shields = self.PAWN_SHIELD_MASKS[king_sq]
-        shield_center = 2**(king_sq + 8 * (-1,1)[color])
-        shield1_count = self._bb_count(pawns & pawn_shields[0])
-        shield2_count = self._bb_count(pawns & pawn_shields[1])
-        # bonus for pawn at shield center, and for pawns at shield rank and next rank
-        kp_val = 15 if shield_center & pawns else -5
-        kp_val += shield1_count * 20
-        kp_val += shield2_count * 10
-        for f in BB_FILES:
-            shield_file = f & (pawn_shields[0] | pawn_shields[1])
-            if shield_file and not (pawns & shield_file):
-                # penalty for open file next to king
-                kp_val -= 20
-                if shield_file & shield_center:
-                    # extra penalty for open file in front of king
-                    kp_val -= 25
-        self.kp_hash[kp_key] = kp_val
-        return kp_val
-
     def _king_attacked_eval(self, king_sq, color):
         # NOTE: This is too slow - takes more than entire piece_eval function
         #       Instead, I should calculate attack by enemy piece type - bishops, knights, etc.,
@@ -1314,20 +1142,9 @@ class Engine(object):
             h ^= self.z_black_turn
         return h
 
-    def _get_hash_default(self):
-        if self._hash is None:
-            self._hash = self.board._transposition_key()
-        return self._hash
-
-    def _get_hash_z(self):
-        if self._hash is None:
-            self._hash = self._board_hash()
-        return self._hash
-
     def _make_move_default(self, move):
         self.nodes += 1
         self.board.push(move)
-        self._hash = None
         return None, None
 
     def _make_move_z(self, move): # promotion, castling and en passant should have special treatment!!!
@@ -1338,7 +1155,6 @@ class Engine(object):
         return piece_from, piece_to
 
     def _unmake_move_default(self, move, piece_from, piece_to):
-        self._hash = None
         return self.board.pop()
 
     def _unmake_move_z(self, move, piece_from, piece_to):

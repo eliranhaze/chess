@@ -586,3 +586,16 @@ Rank Name                  Elo    +    - games score oppo. draws
 
 -- looking good. also i noticed that i limited depth to 12 which may have been hindering the lmr version a bit in endgames... (both version had average time lower than limit which must mean that they have been hitting the limit once in a while)
 -- lmr params are not optimized, but committing for now
+
+---------
+king safety, counting attackers:
+
++215 =141 -144
+avg move depths: e1 5.97, e2 5.95
+avg move times: e1 0.17, e2 0.17
+(-15 ks)
++179 =126 -195
+avg move depths: e1 5.45, e2 5.41
+avg move times: e1 0.17, e2 0.17
+(-5 ks)
+but was worse against stockfish, again

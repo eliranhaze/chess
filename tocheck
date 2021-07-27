@@ -24,14 +24,15 @@ currently:
 	- should revisit and recheck later
 	- note also that the tb code doesn't slow down search... so there really should be no downside - with
 	  correct implementation this should be pure elo gain
-	- can also consider the simplest approach first, of just probing at root and filtering any non-optimal moves, and then 
-	  doing search as normal with no probe
-[_] LMR
+	- can also consider the simplest approach first, of just probing at root and filtering any non-optimal moves, and then doing search as normal with no probe
+[v] LMR
 	- NOTE: should also not reduce when in PV node, also don't reduce PROMOTIONS
 [_] kp val - remember that this was found to be worse than without - recheck
 
 next:
--
+- King safety - in engine_ks file - need to run game
+- Tapered eval - also see related comment in piece_eval about endgame
+- Work on more evaluation stuff, maybe consider pieces attacked/defended as well
 
 todo:
 - I should import the generate_legal_moves code to the engine, and use information that is available at move generation
@@ -42,3 +43,6 @@ todo:
 
 note:
 - all the movegen stuff... everything turns out to be slower... MUCH slower... idk why. even when in ipy it's faster, in speedtest it a lot slower, even when just the move generation is measured
+	- I think the reason has to do with pypy optimization: the more something runs
+	  the faster it becomes, so if what was previously just one function is now
+ 	  two different ones, they might runs slower overall even if they are individually faster

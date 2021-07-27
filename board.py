@@ -81,6 +81,12 @@ class Board(chess.Board):
 
     def __init__(self, *arg, **kw):
         super().__init__(*arg, **kw)
+        self._hash = None
+
+    def get_hash(self):
+        if self._hash is None:
+            self._hash = self._transposition_key()
+        return self._hash
 
     def king(self, color):
         """ returns king square """
@@ -156,6 +162,7 @@ class Board(chess.Board):
         return 0
 
     def push(self, move):
+        self._hash = None
         board_state = self._board_state()
         self.castling_rights = self.clean_castling_rights()  # Before pushing stack
         self.move_stack.append(move)
@@ -252,6 +259,11 @@ class Board(chess.Board):
 
         # Swap turn.
         self.turn = not self.turn
+
+    def pop(self):
+        self._hash = None
+        self.move_stack.pop()
+        self._stack.pop().restore(self)
 
     def _to_chess960(self, move):
         if move.from_square == E1 and self.kings & BB_E1:
