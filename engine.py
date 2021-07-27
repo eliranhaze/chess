@@ -1036,14 +1036,10 @@ class Engine(object):
         return attackers
 
     def _table_maintenance(self):
+        self.board.table_maintenance()
         limits = {
-            'evals': self.TT_SIZE,
             'tp': self.TT_SIZE,
             'top_moves': self.TT_SIZE /2,
-            'p_hash': self.TT_SIZE/10,
-            'n_hash': self.TT_SIZE/10,
-            'r_hash': self.TT_SIZE/10,
-            'kp_hash': self.TT_SIZE/10,
         }
         for var, limit in limits.items():
             table = getattr(self, var)

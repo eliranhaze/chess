@@ -91,6 +91,8 @@ PAWN_STOPPERS = init_pawn_stoppers()
 
 class EvalBoard(Board):
 
+    HASH_SIZE = 4e6
+
     def __init__(self, *arg, **kw):
         super().__init__(*arg, **kw)
         self.endgame = False
@@ -289,3 +291,28 @@ class EvalBoard(Board):
         x = (x & 0x00FF00FF00FF00FF) + ((x >> 8) & 0x00FF00FF00FF00FF)
         x = (x & 0x0000FFFF0000FFFF) + ((x >> 16) & 0x0000FFFF0000FFFF)
         return (x & 0x00000000FFFFFFFF) + ((x >> 32) & 0x00000000FFFFFFFF)
+
+    def table_maintenance(self):
+        limits = {
+            'evals': self.HASH_SIZE,
+            'kp_hash': self.HASH_SIZE/10,
+        }
+        for var, limit in limits.items():
+            table = getattr(self, var)
+            if len(table) > limit:
+                table.clear()
+        limits = {
+            'p_hash': self.HASH_SIZE/10,
+            'pp_hash': self.HASH_SIZE/10,
+            'n_hash': self.HASH_SIZE/10,
+            'b_hash': self.HASH_SIZE/10,
+            'r_hash': self.HASH_SIZE/10,
+            'q_hash': self.HASH_SIZE/10,
+        }
+        for var, limit in limits.items():
+            table = getattr(self, var)
+            for color in (BLACK, WHITE):
+                for endgame in (True, False):
+                    table = getattr(self, var)[color][endgame]
+                    if len(table) > limit:
+                        table.clear()
