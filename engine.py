@@ -261,7 +261,6 @@ class Engine(object):
         self.move_time_limit = self.MOVE_TIME_LIMIT
         self.depth_record = []
         self.time_record = []
-        #self.evaluator = Evaluator()
         if self.Z_HASHING:
             self._make_move = self._make_move_z
             self._unmake_move = self._unmake_move_z
@@ -291,7 +290,6 @@ class Engine(object):
         self.endgame = False
         self.resigned = False
         self.move_evals = []
-        self.evals = {}
         self.top_moves = {}
         self.killers = []
         self.counters = [[None]*64 for i in range(64)]
@@ -303,20 +301,12 @@ class Engine(object):
                 for k in range(64):
                     self.history[i][j].append(0)
         self.tp = {}
-        self.p_hash = [[{},{}],[{},{}]]
-        self.n_hash = [[{},{}],[{},{}]]
-        self.r_hash = [[{},{}],[{},{}]]
-        self.b_hash = [[{},{}],[{},{}]]
-        self.q_hash = [[{},{}],[{},{}]]
-        self.kp_hash = {}
         self.all_moves = 0
         self.used_moves = 0
         self.q_all_moves = 0
         self.q_used_moves = 0
         self.move_hits = 0
         self.top_hits = 0
-        self.tt = 0
-        self.ev = 0
         self.nodes = 0
         self.times = {
                 'ev': 0,
@@ -370,8 +360,6 @@ class Engine(object):
                     print('  - %s: %.2fs (%.1f%%)' % (x, dur, 100*dur/tt))
                 if self.move_hits:
                     print('top move hits: %d, total: %d (%.1f%%)' % (self.top_hits, self.move_hits, 100*self.top_hits/self.move_hits))
-                if self.ev:
-                    print('tt hits: %d, total: %d (%.1f%%)' % (self.tt, self.ev, 100*self.tt/self.ev))
                 if self.nodes:
                     print('total nodes evaluated: %d' % self.nodes)
             self._display_board()
@@ -1197,7 +1185,7 @@ class Engine(object):
         # get memory size in MB of saved data - works only in python3, not in pypy3
         from sys import getsizeof
         size = 0
-        for struct in (self.evals, self.tp, self.top_moves):
+        for struct in (self.tp, self.top_moves):
             size += getsizeof(struct)
             size += sum(map(getsizeof, struct.values())) + sum(map(getsizeof, struct.keys()))
         return size / 1024 / 1024
