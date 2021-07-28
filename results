@@ -627,3 +627,18 @@ Rank Name                  Elo    +    - games score oppo. draws
    4 Arasan 22.3 [1600]   1436   28   30   400   18%  1716    8% 
 
 -- seems good, committing
+
+----------
+tempo bonus
+
+running 500 games: engine vs engine2 [0.17s tpm]
++184 =118 -198
+avg move depths: e1 5.47, e2 5.48
+avg move times: e1 0.17, e2 0.17
+running 250 games: engine vs Stockfish 13 [1600] [0.17s tpm]
++159 =11 -80
+avg move depths: 5.22
+avg move times: 0.17
+running 250 games: engine2 vs Stockfish 13 [1600] [0.17s tpm]
++128 =9 -83
+... before RAM maxed out...

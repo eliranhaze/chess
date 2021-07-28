@@ -302,8 +302,8 @@ class EvalBoard(Board):
             if len(table) > limit:
                 table.clear()
         limits = {
-            'p_hash': self.HASH_SIZE/10,
-            'pp_hash': self.HASH_SIZE/10,
+            'pp_hash': self.HASH_SIZE/4,
+            'p_hash': self.HASH_SIZE/8,
             'n_hash': self.HASH_SIZE/10,
             'b_hash': self.HASH_SIZE/10,
             'r_hash': self.HASH_SIZE/10,

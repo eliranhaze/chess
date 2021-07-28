@@ -1,7 +1,6 @@
 import chess
 import chess.polyglot
 import chess.svg
-import gc
 import random
 import time
 
@@ -435,7 +434,6 @@ class Engine(object):
 
     def _select_move(self):
         self._move_start_time = time.time()
-        self._table_maintenance()
         self._check_endgame()
         book_move = self._select_book_move()
         if book_move:
@@ -473,7 +471,6 @@ class Engine(object):
     def _iterative_deepening(self):
         t0 = time.time()
         self._check_endgame()
-        self._table_maintenance()
         best_move = None
         move_eval = -self.INF
         for depth in range(1, self.MAX_ITER_DEPTH + 1):
@@ -786,6 +783,7 @@ class Engine(object):
                 print('... %d nodes evaluated (%.4fs)' % (self.nodes - prev_nodes, time.time()-t1))
             prev_nodes = self.nodes
 
+            self._table_maintenance()
             # consider terminating due to time
             # - note that the time limit is not exact because we are checking it only after a best move,
             #   which may occur after a long q search.
@@ -1033,7 +1031,6 @@ class Engine(object):
             table = getattr(self, var)
             if len(table) > limit:
                 table.clear()
-                gc.collect()
 
     def _king_attacked_eval(self, king_sq, color):
         # NOTE: This is too slow - takes more than entire piece_eval function

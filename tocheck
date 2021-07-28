@@ -30,15 +30,15 @@ currently:
 [_] kp val - remember that this was found to be worse than without - recheck
 
 next:
+- still having memory leakage issues - ram went way high on colab, but strangely open after second game series vs stockfish, maybe 150 games in...
+	- maybe i should have a log with hash table lengths printed after every game, or maybe even every move..
+	- maybe try just adding gc.collect to eval.py first, just to make sure it's not that - also run once with prints to make sure everything is cleaned out at least once
 - King safety - in engine_ks file - need to run game
 - Tapered eval - also see related comment in piece_eval about endgame
 - Work on more evaluation stuff, maybe consider pieces attacked/defended as well
+- need to integrate syzygy tb - some draws in selfplay seem to result from lack of endgame knowledge - also can add draw offer if in drawn position instead of going on for 150 moves...
 
 todo:
-- I should import the generate_legal_moves code to the engine, and use information that is available at move generation
- such as whether we are in check and whether the move is a capture etc, and use that later on instead of re-calculating - should improve speed.
-	--- NOPE, that was just a waste of time - engine ran slower, not sure why, even though my move generation
-	    seemed to be a bit faster... well...
 - QS when in check - see discussion: http://talkchess.com/forum3/viewtopic.php?f=7&t=47162&start=10
 
 note:
